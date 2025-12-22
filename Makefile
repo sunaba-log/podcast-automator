@@ -10,7 +10,7 @@
 .PHONY: docker-build  # build a docker image.
 .PHONY: terraform-docker-build  # build infrastructure docker image
 .PHONY: terraform-upgrade # initializes terraform with the latest versions
-.PHONY: terraform-fix  # fix terraform code
+.PHONY: terraform-format  # format terraform code
 .PHONY: terraform-validate  # validate terraform code
 .PHONY: terraform-all  # format and validate terraform code
 .PHONY: terraform-deploy-dev  # deploy to develop environment
@@ -110,7 +110,7 @@ terraform-setup: terraform-docker-build
 terraform-upgrade: terraform-docker-build
 	$(TERRAFORM_BASE_COMMAND) init -upgrade -backend-config=environments/${ENVIRONMENT}/backend.conf
 
-terraform-fix:
+terraform-format:
 	$(MAKE) terraform-setup ENVIRONMENT=dev
 	$(TERRAFORM_BASE_COMMAND) fmt -recursive
 
@@ -120,7 +120,7 @@ terraform-validate:
 	$(TERRAFORM_BASE_COMMAND) validate
 
 terraform-all:
-	$(MAKE) terraform-fix
+	$(MAKE) terraform-format
 	$(MAKE) terraform-validate ENVIRONMENT=dev
 
 terraform-base:

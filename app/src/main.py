@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import os
 import sys
-from typing import TextIO
+from typing import TYPE_CHECKING, TextIO
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 def format_env(environ: Mapping[str, str]) -> list[str]:
@@ -28,6 +30,7 @@ def print_env(
 
 
 def main() -> None:
+    """Print the current environment to stdout."""
     print_env()
 
 

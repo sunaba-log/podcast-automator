@@ -1,6 +1,7 @@
 # Targets for setup / cleanup
 .PHONY: all
 .PHONY: install  # install dependencies including development
+.PHONY: lock  # re-lock dependendencies without updating them
 .PHONY: upgrade  # upgrade uv and dependencies
 .PHONY: lint  # executes various style and static code analysis tools
 .PHONY: format  # format the code
@@ -19,6 +20,9 @@ all: install fix lint test
 
 install:
 	uv sync
+
+lock:
+	uv lock
 
 upgrade:
 	uv lock --upgrade
