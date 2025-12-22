@@ -1,7 +1,7 @@
 .PHONY: all
 .PHONY: install  # install dependencies including development
 .PHONY: lock  # re-lock dependendencies without updating them
-.PHONY: upgrade  # upgrade pip, poetry and dependencies
+.PHONY: upgrade  # upgrade uv and dependencies
 .PHONY: lint  # executes various style and static code analysis tools
 .PHONY: fix  # format the code and apply save fixes discovered by static code analysis tools
 .PHONY: test  # executs pytest

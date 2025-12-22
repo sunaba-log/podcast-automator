@@ -1,0 +1,11 @@
+[project]
+name = "podcast-automator"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.10"
+
+[dependency-groups]
+dev = [
+  "ruff>=0.5.0",
+  "pytest>=8.0.0",
+]
