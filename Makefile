@@ -18,6 +18,8 @@
 .PHONY: terraform-deploy-prod  # deploy to production environment
 .PHONY: terraform-destroy-prod  # destroy the production environment
 .PHONY: terraform-clean # removes local created terraform resources
+.PHONY: gcloud-set-project # set gcloud default project (host)
+.PHONY: gcloud-adc-login # gcloud application default login (host)
 
 SHELL := /bin/bash
 
@@ -105,3 +107,10 @@ terraform-destroy-prod:
 terraform-clean:
 	find . -type d -name '.terraform' -exec rm -rf {} +
 	find . -type f -name '.terraform.lock.hcl' -delete
+
+gcloud-set-project:
+	@if [ -z "$(PROJECT_ID)" ]; then echo "PROJECT_ID is required. Example: make gcloud-set-project PROJECT_ID=your-project"; exit 1; fi
+	gcloud config set project $(PROJECT_ID)
+
+gcloud-adc-login:
+	gcloud auth application-default login
