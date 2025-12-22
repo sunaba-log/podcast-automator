@@ -1,34 +1,26 @@
 # Base image used for preparing dependencies and for the final image
-FROM public.ecr.aws/lambda/python:3.12-x86_64 as baseimage
-COPY --from=public.ecr.aws/datadog/lambda-extension:latest /opt/. /opt/
-RUN pip install --no-cache-dir --upgrade pip poetry
-RUN dnf update -y \
-    && dnf install -y make tzdata \
-    && dnf clean all \
-        && rm -rf /var/cache/yum
-WORKDIR ${LAMBDA_TASK_ROOT}
+FROM python:3.12-slim as baseimage
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir --upgrade pip uv
+WORKDIR /app
 
 
 # Prepare dependencies in separate builder to allow efficient docker caching
 FROM baseimage as builder
-RUN pip install --no-cache-dir --upgrade pip poetry
-ENV POETRY_NO_INTERACTION=1
-ENV POETRY_VIRTUALENVS_IN_PROJECT=1
-ENV POETRY_VIRTUALENVS_CREATE=1
-ENV POETRY_CACHE_DIR=/tmp/docker_builder/poetry_cache
-COPY mcp_server/pyproject.toml mcp_server/poetry.lock mcp_server/Makefile ./
-RUN poetry run pip install datadog-lambda
-RUN --mount=type=cache,target=$POETRY_CACHE_DIR make install-prod POETRY_INSTALL_FLAG=--no-root
+ENV UV_CACHE_DIR=/tmp/docker_builder/uv_cache
+COPY app/pyproject.toml app/uv.lock ./
+RUN --mount=type=cache,target=$UV_CACHE_DIR uv sync --frozen
 
 
 # Finally, build the application docker image using the base image and dependencies from the previous steps
 FROM baseimage
-ENV VIRTUAL_ENV=${LAMBDA_TASK_ROOT}/.venv
+ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
-COPY mcp_server ./
-RUN chmod -R a+rX ${LAMBDA_TASK_ROOT}
-RUN make install-prod
-ENV PYTHONPATH=${VIRTUAL_ENV}/lib/python3.12/site-packages
-ENV DD_LAMBDA_HANDLER="src.lambda_handler.lambda_handler"
-CMD [ "datadog_lambda.handler.handler" ]
+COPY --from=builder /app/.venv /app/.venv
+COPY app/src ./src
+ENV PYTHONPATH=/app/src
+CMD [ "python", "-m", "main" ]
