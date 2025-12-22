@@ -37,3 +37,8 @@ override.tf.json
 terraform.rc
 
 .serena/
+.venv/
+app/.venv/
+.ruff_cache/
+.pytest_cache/
+**/__pycache__/
