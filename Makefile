@@ -3,6 +3,7 @@
 .PHONY: lock  # re-lock dependendencies without updating them
 .PHONY: upgrade  # upgrade uv and dependencies
 .PHONY: lint  # executes various style and static code analysis tools
+.PHONY: format  # format the code
 .PHONY: fix  # format the code and apply save fixes discovered by static code analysis tools
 .PHONY: test  # executs pytest
 .PHONY: clean  # clean tool artifacts and virtualenv
@@ -27,6 +28,7 @@ SYSTEMS_INSTALL = $(SYSTEMS:%=install-%)
 SYSTEMS_CLEAN = $(SYSTEMS:%=clean-%)
 SYSTEMS_LINT = $(SYSTEMS:%=lint-%)
 SYSTEMS_TEST = $(SYSTEMS:%=test-%)
+SYSTEMS_FORMAT = $(SYSTEMS:%=format-%)
 SYSTEMS_FIX = $(SYSTEMS:%=fix-%)
 SYSTEMS_LOCK = $(SYSTEMS:%=lock-%)
 SYSTEMS_UPGRADE = $(SYSTEMS:%=upgrade-%)
@@ -68,6 +70,12 @@ lint: $(SYSTEMS_LINT)
 $(SYSTEMS_LINT):
 	@echo $@
 	@cd $(@:lint-%=%) && make $(MAKE_FLAGS) lint
+
+format: $(SYSTEMS_FORMAT)
+	@echo "** $@ Finished Successfully **"
+$(SYSTEMS_FORMAT):
+	@echo $@
+	@cd $(@:format-%=%) && make $(MAKE_FLAGS) format
 
 fix: $(SYSTEMS_FIX)
 	@echo "** $@ Finished Successfully **"

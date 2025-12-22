@@ -8,14 +8,14 @@
 .PHONY: upgrade  # upgrade uv and dependencies
 
 install:
-	uv sync
+	uv sync --no-install-project
 
 lock:
 	uv lock
 
 upgrade:
 	uv lock --upgrade
-	uv sync
+	uv sync --no-install-project
 
 format:
 	uv run ruff format .
