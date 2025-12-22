@@ -37,7 +37,7 @@ INTERACTIVE_FLAG := $(shell [ -t 0 ] && echo "-it")
 SSH_SETTINGS=-v ~/.ssh:/root/.ssh:ro -v ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
 LOCAL_HOST_UID := $(shell id -u)
 DOCKER_SOCKET_SETTINGS := $(shell if [ -S /run/user/${LOCAL_HOST_UID}/docker.sock ]; then echo "-v /run/user/${LOCAL_HOST_UID}/docker.sock:/var/run/docker.sock:ro"; else echo "-v /var/run/docker.sock:/var/run/docker.sock"; fi)
-TERRAFORM_BASE_COMMAND=docker run --rm ${INTERACTIVE_FLAG} --env-file .env -v $(PWD):/work -w /work/infrastructure ${DOCKER_SOCKET_SETTINGS} ${SSH_SETTINGS} aws-terraform:latest
+TERRAFORM_BASE_COMMAND=docker run --rm ${INTERACTIVE_FLAG} --env-file .env -v $(PWD):/work -w /work/infrastructure ${DOCKER_SOCKET_SETTINGS} ${SSH_SETTINGS} terraform:latest
 
 install: $(SYSTEMS_INSTALL)
 	@echo "** $@ Finished Successfully **"
@@ -104,7 +104,7 @@ terraform-clean:
 	find . -type f -name '.terraform.lock.hcl' -delete
 
 terraform-docker-build:
-	DOCKER_BUILDKIT=1 docker build --secret id=github_access_token,env=GITHUB_ACCESS_TOKEN infrastructure -t aws-terraform:latest
+	DOCKER_BUILDKIT=1 docker build infrastructure -t terraform:latest
 
 terraform-upgrade: terraform-docker-build
 	$(TERRAFORM_BASE_COMMAND) init -upgrade -backend-config=environments/${ENVIRONMENT}/backend.conf
