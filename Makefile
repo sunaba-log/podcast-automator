@@ -41,65 +41,24 @@ LOCAL_HOST_UID := $(shell id -u)
 DOCKER_SOCKET_SETTINGS := $(shell if [ -S /run/user/${LOCAL_HOST_UID}/docker.sock ]; then echo "-v /run/user/${LOCAL_HOST_UID}/docker.sock:/var/run/docker.sock:ro"; else echo "-v /var/run/docker.sock:/var/run/docker.sock"; fi)
 TERRAFORM_BASE_COMMAND=docker run --rm ${INTERACTIVE_FLAG} --env-file .env -v $(PWD):/work -w /work/infrastructure ${DOCKER_SOCKET_SETTINGS} ${SSH_SETTINGS} terraform:latest
 
-all: $(SYSTEMS_ALL)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_ALL):
-	@echo $@
-	@cd $(@:all-%=%) && make $(MAKE_FLAGS) all
+define SYSTEM_TARGET
+$1: $2
+	@echo "** $$@ Finished Successfully **"
+$2:
+	@echo $$@
+	@cd $$(@:$1-%=%) && make $$(MAKE_FLAGS) $1
+endef
 
-install: $(SYSTEMS_INSTALL)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_INSTALL):
-	@echo $@
-	@cd $(@:install-%=%) && make $(MAKE_FLAGS) install
-
-lock: $(SYSTEMS_LOCK)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_LOCK):
-	@echo $@
-	@cd $(@:lock-%=%) && make $(MAKE_FLAGS) lock
-
-upgrade: $(SYSTEMS_UPGRADE)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_UPGRADE):
-	@echo $@
-	@cd $(@:upgrade-%=%) && make $(MAKE_FLAGS) upgrade
-
-lint: $(SYSTEMS_LINT)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_LINT):
-	@echo $@
-	@cd $(@:lint-%=%) && make $(MAKE_FLAGS) lint
-
-format: $(SYSTEMS_FORMAT)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_FORMAT):
-	@echo $@
-	@cd $(@:format-%=%) && make $(MAKE_FLAGS) format
-
-fix: $(SYSTEMS_FIX)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_FIX):
-	@echo $@
-	@cd $(@:fix-%=%) && make $(MAKE_FLAGS) fix
-
-test: $(SYSTEMS_TEST)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_TEST):
-	@echo $@
-	@cd $(@:test-%=%) && make $(MAKE_FLAGS) test
-
-clean: $(SYSTEMS_CLEAN)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_CLEAN):
-	@echo $@
-	@cd $(@:clean-%=%) && make $(MAKE_FLAGS) clean
-
-docker-build: $(SYSTEMS_DOCKER_BUILD)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_DOCKER_BUILD):
-	@echo $@
-	@cd $(@:docker-build-%=%) && make $(MAKE_FLAGS) docker-build
+$(eval $(call SYSTEM_TARGET,all,$(SYSTEMS_ALL)))
+$(eval $(call SYSTEM_TARGET,install,$(SYSTEMS_INSTALL)))
+$(eval $(call SYSTEM_TARGET,lock,$(SYSTEMS_LOCK)))
+$(eval $(call SYSTEM_TARGET,upgrade,$(SYSTEMS_UPGRADE)))
+$(eval $(call SYSTEM_TARGET,lint,$(SYSTEMS_LINT)))
+$(eval $(call SYSTEM_TARGET,format,$(SYSTEMS_FORMAT)))
+$(eval $(call SYSTEM_TARGET,fix,$(SYSTEMS_FIX)))
+$(eval $(call SYSTEM_TARGET,test,$(SYSTEMS_TEST)))
+$(eval $(call SYSTEM_TARGET,clean,$(SYSTEMS_CLEAN)))
+$(eval $(call SYSTEM_TARGET,docker-build,$(SYSTEMS_DOCKER_BUILD)))
 
 terraform-docker-build:
 	DOCKER_BUILDKIT=1 docker build infrastructure -t terraform:latest
