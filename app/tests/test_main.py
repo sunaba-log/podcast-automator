@@ -6,9 +6,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-SRC_DIR = Path(__file__).resolve().parents[1] / "src"
-
 from main import format_env, print_env
+
+SRC_DIR = Path(__file__).resolve().parents[1] / "src"
 
 
 def test_format_env_sorts() -> None:
