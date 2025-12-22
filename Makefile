@@ -10,13 +10,13 @@
 .PHONY: terraform-docker-build  # build infrastructure docker image
 .PHONY: terraform-clean # removes local created terraform resources
 .PHONY: terraform-upgrade # initializes terraform with the latest versions
-.PHONY: terraform-fix  # format terraform code
+.PHONY: terraform-fix  # fix terraform code
 .PHONY: terraform-validate  # validate terraform code
 .PHONY: terraform-all  # format and validate terraform code
-.PHONY: terraform-production-deploy  # deploy to production environment
-.PHONY: terraform-production-destroy  # destroy the production environment
-.PHONY: terraform-develop-deploy  # deploy to develop environment
-.PHONY: terraform-develop-destroy  # destroy the develop environment
+.PHONY: terraform-deploy-prod  # deploy to production environment
+.PHONY: terraform-destroy-prod  # destroy the production environment
+.PHONY: terraform-deploy-dev  # deploy to develop environment
+.PHONY: terraform-destroy-dev  # destroy the develop environment
 
 SHELL := /bin/bash
 
@@ -110,7 +110,7 @@ terraform-upgrade: terraform-docker-build
 	$(TERRAFORM_BASE_COMMAND) init -upgrade -backend-config=environments/${ENVIRONMENT}/backend.conf
 
 terraform-fix:
-	$(MAKE) terraform-setup ENVIRONMENT=develop
+	$(MAKE) terraform-setup ENVIRONMENT=dev
 	$(TERRAFORM_BASE_COMMAND) fmt -recursive
 
 terraform-validate:
@@ -120,7 +120,7 @@ terraform-validate:
 
 terraform-all:
 	$(MAKE) terraform-fix
-	$(MAKE) terraform-validate ENVIRONMENT=develop
+	$(MAKE) terraform-validate ENVIRONMENT=dev
 
 terraform-setup: terraform-docker-build
 	$(TERRAFORM_BASE_COMMAND) init -backend-config=environments/${ENVIRONMENT}/backend.conf
@@ -129,14 +129,14 @@ terraform-base:
 	$(MAKE) terraform-setup
 	$(TERRAFORM_BASE_COMMAND) ${COMMAND} -var-file=environments/${ENVIRONMENT}/variables.tfvars
 
-terraform-production-deploy:
-	$(MAKE) terraform-base ENVIRONMENT=production COMMAND="apply ${DEPLOY_COMMAND_EXTENSION}"
+terraform-deploy-prod:
+	$(MAKE) terraform-base ENVIRONMENT=prod COMMAND="apply ${DEPLOY_COMMAND_EXTENSION}"
 
-terraform-production-destroy:
-	$(MAKE) terraform-base ENVIRONMENT=production COMMAND=destroy
+terraform-destroy-prod:
+	$(MAKE) terraform-base ENVIRONMENT=prod COMMAND="destroy"
 
-terraform-develop-deploy:
-	$(MAKE) terraform-base ENVIRONMENT=develop COMMAND="apply ${DEPLOY_COMMAND_EXTENSION}"
+terraform-deploy-dev:
+	$(MAKE) terraform-base ENVIRONMENT=dev COMMAND="apply ${DEPLOY_COMMAND_EXTENSION}"
 
-terraform-develop-destroy:
-	$(MAKE) terraform-base ENVIRONMENT=develop COMMAND="destroy -auto-approve"
+terraform-destroy-dev:
+	$(MAKE) terraform-base ENVIRONMENT=dev COMMAND="destroy"
