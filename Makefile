@@ -1,22 +1,22 @@
 .PHONY: all
+.PHONY: install  # install dependencies including development
+.PHONY: lock  # re-lock dependendencies without updating them
+.PHONY: upgrade  # upgrade pip, poetry and dependencies
+.PHONY: lint  # executes various style and static code analysis tools
+.PHONY: fix  # format the code and apply save fixes discovered by static code analysis tools
+.PHONY: test  # executs pytest
 .PHONY: clean  # clean tool artifacts and virtualenv
 .PHONY: docker-build  # build a docker image.
-.PHONY: fix  # format the code and apply save fixes discovered by static code analysis tools
-.PHONY: install  # install dependencies including development
-.PHONY: lint  # executes various style and static code analysis tools
-.PHONY: lock  # re-lock dependendencies without updating them
-.PHONY: test  # executs pytest
-.PHONY: upgrade  # upgrade pip, poetry and dependencies
-.PHONY: terraform-all  # format and validate terraform code
-.PHONY: terraform-clean # removes local created terraform resources
-.PHONY: terraform-deploy-dev  # deploy to develop environment
-.PHONY: terraform-deploy-prod  # deploy to production environment
-.PHONY: terraform-destroy-dev  # destroy the develop environment
-.PHONY: terraform-destroy-prod  # destroy the production environment
 .PHONY: terraform-docker-build  # build infrastructure docker image
-.PHONY: terraform-fix  # fix terraform code
 .PHONY: terraform-upgrade # initializes terraform with the latest versions
+.PHONY: terraform-fix  # fix terraform code
 .PHONY: terraform-validate  # validate terraform code
+.PHONY: terraform-all  # format and validate terraform code
+.PHONY: terraform-deploy-dev  # deploy to develop environment
+.PHONY: terraform-destroy-dev  # destroy the develop environment
+.PHONY: terraform-deploy-prod  # deploy to production environment
+.PHONY: terraform-destroy-prod  # destroy the production environment
+.PHONY: terraform-clean # removes local created terraform resources
 
 SHELL := /bin/bash
 
@@ -45,6 +45,42 @@ $(SYSTEMS_ALL):
 	@echo $@
 	@cd $(@:all-%=%) && make $(MAKE_FLAGS) all
 
+install: $(SYSTEMS_INSTALL)
+	@echo "** $@ Finished Successfully **"
+$(SYSTEMS_INSTALL):
+	@echo $@
+	@cd $(@:install-%=%) && make $(MAKE_FLAGS) install
+
+lock: $(SYSTEMS_LOCK)
+	@echo "** $@ Finished Successfully **"
+$(SYSTEMS_LOCK):
+	@echo $@
+	@cd $(@:lock-%=%) && make $(MAKE_FLAGS) lock
+
+upgrade: $(SYSTEMS_UPGRADE)
+	@echo "** $@ Finished Successfully **"
+$(SYSTEMS_UPGRADE):
+	@echo $@
+	@cd $(@:upgrade-%=%) && make $(MAKE_FLAGS) upgrade
+
+lint: $(SYSTEMS_LINT)
+	@echo "** $@ Finished Successfully **"
+$(SYSTEMS_LINT):
+	@echo $@
+	@cd $(@:lint-%=%) && make $(MAKE_FLAGS) lint
+
+fix: $(SYSTEMS_FIX)
+	@echo "** $@ Finished Successfully **"
+$(SYSTEMS_FIX):
+	@echo $@
+	@cd $(@:fix-%=%) && make $(MAKE_FLAGS) fix
+
+test: $(SYSTEMS_TEST)
+	@echo "** $@ Finished Successfully **"
+$(SYSTEMS_TEST):
+	@echo $@
+	@cd $(@:test-%=%) && make $(MAKE_FLAGS) test
+
 clean: $(SYSTEMS_CLEAN)
 	@echo "** $@ Finished Successfully **"
 $(SYSTEMS_CLEAN):
@@ -56,46 +92,6 @@ docker-build: $(SYSTEMS_DOCKER_BUILD)
 $(SYSTEMS_DOCKER_BUILD):
 	@echo $@
 	@cd $(@:docker-build-%=%) && make $(MAKE_FLAGS) docker-build
-
-fix: $(SYSTEMS_FIX)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_FIX):
-	@echo $@
-	@cd $(@:fix-%=%) && make $(MAKE_FLAGS) fix
-
-install: $(SYSTEMS_INSTALL)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_INSTALL):
-	@echo $@
-	@cd $(@:install-%=%) && make $(MAKE_FLAGS) install
-
-lint: $(SYSTEMS_LINT)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_LINT):
-	@echo $@
-	@cd $(@:lint-%=%) && make $(MAKE_FLAGS) lint
-
-lock: $(SYSTEMS_LOCK)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_LOCK):
-	@echo $@
-	@cd $(@:lock-%=%) && make $(MAKE_FLAGS) lock
-
-test: $(SYSTEMS_TEST)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_TEST):
-	@echo $@
-	@cd $(@:test-%=%) && make $(MAKE_FLAGS) test
-
-upgrade: $(SYSTEMS_UPGRADE)
-	@echo "** $@ Finished Successfully **"
-$(SYSTEMS_UPGRADE):
-	@echo $@
-	@cd $(@:upgrade-%=%) && make $(MAKE_FLAGS) upgrade
-
-terraform-clean:
-	find . -type d -name '.terraform' -exec rm -rf {} +
-	find . -type f -name '.terraform.lock.hcl' -delete
 
 terraform-docker-build:
 	DOCKER_BUILDKIT=1 docker build infrastructure -t terraform:latest
@@ -134,3 +130,7 @@ terraform-deploy-prod:
 
 terraform-destroy-prod:
 	$(MAKE) terraform-base ENVIRONMENT=prod COMMAND="destroy"
+
+terraform-clean:
+	find . -type d -name '.terraform' -exec rm -rf {} +
+	find . -type f -name '.terraform.lock.hcl' -delete
