@@ -41,5 +41,9 @@ terraform.rc
 app/.venv/
 .ruff_cache/
 .pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 **/__pycache__/
 *.egg-info/
