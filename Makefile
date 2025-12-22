@@ -25,6 +25,7 @@ SHELL := /bin/bash
 
 SYSTEMS_DOCKER = app
 SYSTEMS = ${SYSTEMS_DOCKER}
+ENVIRONMENT ?= dev
 
 SYSTEMS_INSTALL = $(SYSTEMS:%=install-%)
 SYSTEMS_CLEAN = $(SYSTEMS:%=clean-%)
@@ -76,7 +77,7 @@ terraform-upgrade: terraform-docker-build
 	$(TERRAFORM_BASE_COMMAND) init -upgrade -backend-config=environments/${ENVIRONMENT}/backend.conf
 
 terraform-format:
-	$(MAKE) terraform-setup ENVIRONMENT=dev
+	$(MAKE) terraform-setup ENVIRONMENT=$(ENVIRONMENT)
 	$(TERRAFORM_BASE_COMMAND) fmt -recursive
 
 terraform-validate:
@@ -85,11 +86,11 @@ terraform-validate:
 	$(TERRAFORM_BASE_COMMAND) validate
 
 terraform-all:
-	$(MAKE) terraform-format
-	$(MAKE) terraform-validate ENVIRONMENT=dev
+	$(MAKE) terraform-format ENVIRONMENT=$(ENVIRONMENT)
+	$(MAKE) terraform-validate ENVIRONMENT=$(ENVIRONMENT)
 
 terraform-base:
-	$(MAKE) terraform-setup
+	$(MAKE) terraform-setup ENVIRONMENT=$(ENVIRONMENT)
 	$(TERRAFORM_BASE_COMMAND) ${COMMAND} -var-file=environments/${ENVIRONMENT}/variables.tfvars
 
 terraform-deploy-dev:
