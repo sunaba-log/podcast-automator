@@ -2,10 +2,61 @@
 name = "podcast-automator"
 version = "0.1.0"
 description = ""
-requires-python = ">=3.10"
+requires-python = ">=3.12,<4.0"
+authors = [
+  { name = "sunaba-log" },
+]
+dependencies = []
 
 [dependency-groups]
 dev = [
-  "ruff>=0.5.0",
-  "pytest>=8.0.0",
+  "pytest-cov>=4.1.0",
+  "pytest>=7.4.3",
+  "ruff>=0.1.6",
 ]
+
+[tool.pytest.ini_options]
+addopts = "-vvv --durations=3"
+testpaths = ["tests"]
+pythonpath = [".", "src"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+pydocstyle.convention = "google"
+select = [
+  "ALL",
+]
+ignore = [
+  "ISC001",  # single-line-implicit-string-concatenation produces conflicts
+  "ANN003",  # kwargs without type check
+  "COM812",  # conflicts when used with the formatter
+  "TRY300",  # do not enforce try-else
+  "PERF203",  # allow try except in loop
+  "TRY301",  # allow raise in try
+  "TRY003",  # allow long exception messages
+  "EM101",  # allow string literals in exceptions
+  "ARG001",  # allow unused arguments (Lambda context, fixtures)
+  "ANN401",  # allow Any type for Lambda context
+]
+unfixable = [
+  "S",  # do not auto fix security related findings
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = [
+  "S",  # ignore security related warnings in tests
+  "C",  # ignore various C categories in tests
+  "D1",  # ignore undocumented code in tests
+  "ANN",  # ignore some type annotation checks in tests
+  "PLR2004",  # ignore magic number compare
+  "SLF001",  # allow private member access for cache reset
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
