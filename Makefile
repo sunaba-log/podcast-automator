@@ -39,7 +39,11 @@ INTERACTIVE_FLAG := $(shell [ -t 0 ] && echo "-it")
 SSH_SETTINGS=-v ~/.ssh:/root/.ssh:ro -v ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
 LOCAL_HOST_UID := $(shell id -u)
 DOCKER_SOCKET_SETTINGS := $(shell if [ -S /run/user/${LOCAL_HOST_UID}/docker.sock ]; then echo "-v /run/user/${LOCAL_HOST_UID}/docker.sock:/var/run/docker.sock:ro"; else echo "-v /var/run/docker.sock:/var/run/docker.sock"; fi)
-TERRAFORM_BASE_COMMAND=docker run --rm ${INTERACTIVE_FLAG} --env-file .env -v $(PWD):/work -w /work/infrastructure ${DOCKER_SOCKET_SETTINGS} ${SSH_SETTINGS} terraform:latest
+GCP_ADC_SETTINGS := -v ~/.config/gcloud:/root/.config/gcloud:ro
+# Optional: set GOOGLE_APPLICATION_CREDENTIALS to a JSON file path and it will be mounted as-is.
+CREDENTIALS_PATH ?= $(GOOGLE_APPLICATION_CREDENTIALS)
+GCP_CREDENTIALS_SETTINGS := $(shell if [ -n "$(CREDENTIALS_PATH)" ]; then echo "-v $(CREDENTIALS_PATH):$(CREDENTIALS_PATH):ro"; fi)
+TERRAFORM_BASE_COMMAND=docker run --rm ${INTERACTIVE_FLAG} --env-file .env -v $(PWD):/work -w /work/infrastructure ${DOCKER_SOCKET_SETTINGS} ${SSH_SETTINGS} ${GCP_ADC_SETTINGS} ${GCP_CREDENTIALS_SETTINGS} terraform:latest
 
 define SYSTEM_TARGET
 $1: $2
