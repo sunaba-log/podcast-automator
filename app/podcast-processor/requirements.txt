@@ -1,0 +1,8 @@
+functions-framework==3.*
+google-cloud-storage
+google-cloud-aiplatform
+boto3        
+requests    
+feedgen     
+feedparser
+pytz
