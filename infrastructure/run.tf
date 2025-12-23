@@ -11,9 +11,9 @@ module "cloud_run" {
   docker_build_result_image_name = "podcast-automator:latest"
   service_account_email          = local.default_compute_service_account
 
-  timeout_seconds    = var.function_timeout_seconds
-  memory             = var.function_available_memory_gib
-  max_instance_count = var.function_max_instance_count
+  timeout_seconds    = 540
+  memory             = "16Gi"
+  max_instance_count = 1
 
   environment_variables = {
     INPUT_BUCKET              = google_storage_bucket.input.name
