@@ -13,4 +13,6 @@ locals {
     "storage.googleapis.com",
     "aiplatform.googleapis.com",
   ]
+
+  default_compute_service_account = "${data.google_project.project.number}-compute@developer.gserviceaccount.com"
 }
