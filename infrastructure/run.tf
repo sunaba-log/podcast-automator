@@ -9,6 +9,7 @@ module "cloud_run" {
   docker_context_path            = "${path.module}/../app"
   docker_build_command           = "make docker-build"
   docker_build_result_image_name = "podcast-automator-app:latest"
+  service_name                   = "${var.system}-app-${var.environment}"
   service_account_email          = local.default_compute_service_account
 
   timeout_seconds    = 540
