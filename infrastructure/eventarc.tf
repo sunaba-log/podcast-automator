@@ -14,10 +14,13 @@ resource "google_eventarc_trigger" "gcs_finalize" {
 
   destination {
     cloud_run_service {
-      service = google_cloudfunctions2_function.processor.service_config[0].service
+      service = google_cloud_run_v2_service.processor.name
       region  = var.region
     }
   }
 
-  depends_on = [google_project_service.required]
+  depends_on = [
+    google_project_service.required,
+    google_cloud_run_v2_service.processor,
+  ]
 }
