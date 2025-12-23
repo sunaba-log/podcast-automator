@@ -3,6 +3,7 @@ locals {
 
   required_services = [
     "artifactregistry.googleapis.com",
+    "compute.googleapis.com",
     "eventarc.googleapis.com",
     "logging.googleapis.com",
     "pubsub.googleapis.com",

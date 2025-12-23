@@ -15,7 +15,7 @@
 
 SHELL := /bin/bash
 TEST_FOLDER := tests
-IMAGE_NAME ?= podcast-automator
+IMAGE_NAME ?= podcast-automator-app
 DOCKER_TAG ?= :latest
 
 all: install fix lint test
