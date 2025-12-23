@@ -15,8 +15,8 @@ resource "google_workflows_workflow" "main" {
             - job: ${module.cloud_run_job.job_name}
       - skipFolderPlaceholder:
           switch:
-            - condition: $${text.match_regex(default(event.data.name, ""), "/$")}
-              return: $${"Skipped folder placeholder: " + event.data.name}
+            - condition: '$${text.match_regex(default(event.data.name, ""), "/$")}'
+              return: '$${"Skipped folder placeholder: " + event.data.name}'
       - runJob:
           call: googleapis.run.v2.projects.locations.jobs.run
           args:
