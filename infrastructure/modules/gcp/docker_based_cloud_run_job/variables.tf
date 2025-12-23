@@ -18,8 +18,8 @@ variable "system" {
   type        = string
 }
 
-variable "service_name" {
-  description = "Cloud Run service name"
+variable "job_name" {
+  description = "Cloud Run job name"
   type        = string
 }
 
@@ -55,10 +55,10 @@ variable "image_keep_count" {
   default     = 3
 }
 
-variable "timeout_seconds" {
-  description = "Cloud Run request timeout in seconds"
-  type        = number
-  default     = 300
+variable "timeout" {
+  description = "Cloud Run request timeout duration (e.g., 300s)"
+  type        = string
+  default     = "900s"
 }
 
 variable "memory" {

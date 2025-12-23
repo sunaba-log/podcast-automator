@@ -1,6 +1,7 @@
 resource "google_eventarc_trigger" "gcs_finalize" {
   name     = lower("${var.system}-gcs-finalize-${var.environment}")
   location = var.region
+  service_account = local.default_compute_service_account
 
   matching_criteria {
     attribute = "type"
@@ -13,14 +14,12 @@ resource "google_eventarc_trigger" "gcs_finalize" {
   }
 
   destination {
-    cloud_run_service {
-      service = module.cloud_run.service_name
-      region  = var.region
-    }
+    workflow = google_workflows_workflow.main.id
   }
 
   depends_on = [
     google_project_service.required,
-    module.cloud_run,
+    module.cloud_run_job,
+    google_workflows_workflow.main,
   ]
 }

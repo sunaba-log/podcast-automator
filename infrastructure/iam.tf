@@ -1,4 +1,4 @@
-resource "google_storage_bucket_iam_member" "cloud_run_input_access" {
+resource "google_storage_bucket_iam_member" "job_input_access" {
   bucket = google_storage_bucket.input.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${local.default_compute_service_account}"
@@ -6,7 +6,7 @@ resource "google_storage_bucket_iam_member" "cloud_run_input_access" {
   depends_on = [google_project_service.required]
 }
 
-resource "google_project_iam_member" "cloud_run_logging" {
+resource "google_project_iam_member" "job_logging" {
   project = local.project_id
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${local.default_compute_service_account}"
@@ -14,7 +14,7 @@ resource "google_project_iam_member" "cloud_run_logging" {
   depends_on = [google_project_service.required]
 }
 
-resource "google_project_iam_member" "cloud_run_vertex_ai" {
+resource "google_project_iam_member" "job_vertex_ai" {
   project = local.project_id
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${local.default_compute_service_account}"
@@ -38,11 +38,18 @@ resource "google_project_iam_member" "eventarc_pubsub" {
   depends_on = [google_project_service.required]
 }
 
-resource "google_cloud_run_v2_service_iam_member" "eventarc_invoke" {
-  location = var.region
-  name     = module.cloud_run.service_name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${local.default_compute_service_account}"
+resource "google_project_iam_member" "workflows_invoker" {
+  project = local.project_id
+  role    = "roles/workflows.invoker"
+  member  = "serviceAccount:${local.default_compute_service_account}"
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_project_iam_member" "job_run_admin" {
+  project = local.project_id
+  role    = "roles/run.admin"
+  member  = "serviceAccount:${local.default_compute_service_account}"
 
   depends_on = [google_project_service.required]
 }
