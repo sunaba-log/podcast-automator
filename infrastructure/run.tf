@@ -6,8 +6,8 @@ module "cloud_run" {
   environment                    = var.environment
   system                         = var.system
   image_name                     = "podcast-automator"
-  docker_context_path            = "${path.module}/.."
-  docker_build_command           = "make -C app docker-build"
+  docker_context_path            = "${path.module}/../app"
+  docker_build_command           = "make docker-build"
   docker_build_result_image_name = "podcast-automator:latest"
   service_account_email          = local.default_compute_service_account
 
