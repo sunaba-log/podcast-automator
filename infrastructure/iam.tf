@@ -53,3 +53,11 @@ resource "google_project_iam_member" "job_run_admin" {
 
   depends_on = [google_project_service.required]
 }
+
+resource "google_project_iam_member" "eventarc_service_agent" {
+  project = local.project_id
+  role    = "roles/eventarc.serviceAgent"
+  member  = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-eventarc.iam.gserviceaccount.com"
+
+  depends_on = [google_project_service.required]
+}
