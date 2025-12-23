@@ -21,6 +21,6 @@ resource "google_eventarc_trigger" "gcs_finalize" {
 
   depends_on = [
     google_project_service.required,
-    google_cloud_run_v2_service.processor,
+    module.cloud_run,
   ]
 }

@@ -1,16 +1,16 @@
-resource "google_storage_bucket_iam_member" "function_input_access" {
+resource "google_storage_bucket_iam_member" "cloud_run_input_access" {
   bucket = google_storage_bucket.input.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${local.default_compute_service_account}"
 }
 
-resource "google_project_iam_member" "function_logging" {
+resource "google_project_iam_member" "cloud_run_logging" {
   project = local.project_id
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${local.default_compute_service_account}"
 }
 
-resource "google_project_iam_member" "function_vertex_ai" {
+resource "google_project_iam_member" "cloud_run_vertex_ai" {
   project = local.project_id
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${local.default_compute_service_account}"

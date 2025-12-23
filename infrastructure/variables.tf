@@ -37,23 +37,6 @@ variable "input_bucket_force_destroy" {
   default     = false
 }
 
-variable "function_timeout_seconds" {
-  type        = number
-  description = "Function timeout in seconds."
-  default     = 540
-}
-
-variable "function_available_memory_gib" {
-  type        = string
-  description = "Function available memory in GiB (e.g., 2Gi, 4Gi)."
-  default     = "16Gi"
-}
-
-variable "function_max_instance_count" {
-  type        = number
-  description = "Max instances for the function."
-  default     = 1
-}
 
 variable "discord_webhook_info_secret_name" {
   type        = string
