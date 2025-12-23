@@ -17,6 +17,12 @@ resource "google_workflows_workflow" "main" {
           call: googleapis.run.v2.projects.locations.jobs.run
           args:
             name: $${"projects/" + project + "/locations/" + region + "/jobs/" + job}
+            body:
+              overrides:
+                containerOverrides:
+                  - env:
+                      - name: "TRIGGER_FILE"
+                        value: $${event.data.name}
           result: jobExecution
       - done:
           return: $${jobExecution}
