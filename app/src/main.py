@@ -108,9 +108,7 @@ def log_trigger_file(
 
 def main() -> None:
     """Log the current environment to stdout."""
-    root_logger = logging.getLogger()
-    if not root_logger.handlers:
-        logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
     send_discord_notification("podcast-automator: execution started")
     log_env()
     log_trigger_file()
