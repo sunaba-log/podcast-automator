@@ -30,14 +30,7 @@ resource "google_project_iam_member" "eventarc_pubsub" {
 
 resource "google_cloud_run_v2_service_iam_member" "eventarc_invoke" {
   location = var.region
-  name     = google_cloud_run_v2_service.processor.name
+  name     = module.cloud_run.service_name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${local.default_compute_service_account}"
-}
-
-resource "google_artifact_registry_repository_iam_member" "processor_reader" {
-  location   = var.region
-  repository = google_artifact_registry_repository.processor.repository_id
-  role       = "roles/artifactregistry.reader"
-  member     = "serviceAccount:${local.default_compute_service_account}"
 }

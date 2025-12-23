@@ -37,41 +37,6 @@ variable "input_bucket_force_destroy" {
   default     = false
 }
 
-
-variable "function_source_bucket" {
-  type        = string
-  description = "GCS bucket containing the Cloud Functions source archive."
-  default     = ""
-
-  validation {
-    condition     = var.function_source_bucket != ""
-    error_message = "function_source_bucket must be set."
-  }
-}
-
-variable "function_source_object" {
-  type        = string
-  description = "Object path (zip) for the Cloud Functions source archive."
-  default     = ""
-
-  validation {
-    condition     = var.function_source_object != ""
-    error_message = "function_source_object must be set."
-  }
-}
-
-variable "function_runtime" {
-  type        = string
-  description = "Runtime for Cloud Functions (2nd gen)."
-  default     = "python312"
-}
-
-variable "function_entry_point" {
-  type        = string
-  description = "Entry point function name."
-  default     = "handler"
-}
-
 variable "function_timeout_seconds" {
   type        = number
   description = "Function timeout in seconds."

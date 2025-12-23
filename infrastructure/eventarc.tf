@@ -14,7 +14,7 @@ resource "google_eventarc_trigger" "gcs_finalize" {
 
   destination {
     cloud_run_service {
-      service = google_cloud_run_v2_service.processor.name
+      service = module.cloud_run.service_name
       region  = var.region
     }
   }
