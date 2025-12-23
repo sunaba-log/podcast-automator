@@ -21,11 +21,8 @@ resource "google_cloudfunctions2_function" "processor" {
 
     environment_variables = {
       INPUT_BUCKET          = google_storage_bucket.input.name
-      DISCORD_WEBHOOK_SECRET = var.discord_webhook_secret_name
-      R2_ACCESS_KEY_ID_SECRET = var.r2_access_key_id_secret_name
-      R2_SECRET_ACCESS_KEY_SECRET = var.r2_secret_access_key_secret_name
-      R2_ENDPOINT_SECRET    = var.r2_endpoint_secret_name
-      R2_BUCKET_NAME_SECRET = var.r2_bucket_name_secret_name
+      DISCORD_WEBHOOK_INFO_URL  = data.google_secret_manager_secret_version.discord_webhook_info.secret_data
+      DISCORD_WEBHOOK_ERROR_URL = data.google_secret_manager_secret_version.discord_webhook_error.secret_data
     }
   }
 
