@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import TYPE_CHECKING, TextIO
@@ -75,12 +76,23 @@ def send_discord_notification(
     request = urllib.request.Request(  # noqa: S310
         webhook_url,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "podcast-automator/1.0",
+        },
         method="POST",
     )
     try:
         with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310
             response.read()
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read(2048).decode("utf-8", errors="replace")
+        except Exception:
+            body = ""
+        detail = body.strip() or str(exc.reason)
+        logger.error("Discord webhook returned HTTP %s: %s", exc.code, detail)
     except Exception:
         logger.exception("Failed to send Discord notification")
 
