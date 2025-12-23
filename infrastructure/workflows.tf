@@ -1,5 +1,5 @@
 resource "google_workflows_workflow" "main" {
-  name            = lower("${var.system}-main-${var.environment}")
+  name            = lower("${var.system}-${var.environment}")
   region          = var.region
   service_account = local.default_compute_service_account
 
