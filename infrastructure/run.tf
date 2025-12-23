@@ -13,7 +13,8 @@ module "cloud_run" {
   service_account_email          = local.default_compute_service_account
 
   timeout_seconds    = 540
-  memory             = "16Gi"
+  memory             = "8Gi"
+  cpu                = "2"
   max_instance_count = 1
 
   environment_variables = {

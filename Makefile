@@ -20,6 +20,7 @@
 .PHONY: terraform-clean # removes local created terraform resources
 .PHONY: gcloud-set-project # set gcloud default project (host)
 .PHONY: gcloud-adc-login # gcloud application default login (host)
+.PHONY: gcloud-login # gcloud login (host)
 
 SHELL := /bin/bash
 
@@ -42,7 +43,7 @@ INTERACTIVE_FLAG := $(shell [ -t 0 ] && echo "-it")
 SSH_SETTINGS=-v ~/.ssh:/root/.ssh:ro -v ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
 LOCAL_HOST_UID := $(shell id -u)
 DOCKER_SOCKET_SETTINGS := $(shell if [ -S /run/user/${LOCAL_HOST_UID}/docker.sock ]; then echo "-v /run/user/${LOCAL_HOST_UID}/docker.sock:/var/run/docker.sock:ro"; else echo "-v /var/run/docker.sock:/var/run/docker.sock"; fi)
-GCP_ADC_SETTINGS := -v ~/.config/gcloud:/root/.config/gcloud:ro
+GCP_ADC_SETTINGS := -v ~/.config/gcloud:/root/.config/gcloud:rw
 # Optional: set GOOGLE_APPLICATION_CREDENTIALS to a JSON file path and it will be mounted as-is.
 CREDENTIALS_PATH ?= $(GOOGLE_APPLICATION_CREDENTIALS)
 GCP_CREDENTIALS_SETTINGS := $(shell if [ -n "$(CREDENTIALS_PATH)" ]; then echo "-v $(CREDENTIALS_PATH):$(CREDENTIALS_PATH):ro"; fi)
@@ -113,5 +114,6 @@ gcloud-set-project:
 	@if [ -z "$(PROJECT_ID)" ]; then echo "PROJECT_ID is required. Example: make gcloud-set-project PROJECT_ID=your-project"; exit 1; fi
 	gcloud config set project $(PROJECT_ID)
 
-gcloud-adc-login:
+gcloud-login:
+	gcloud auth login
 	gcloud auth application-default login

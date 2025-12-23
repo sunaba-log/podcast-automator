@@ -67,6 +67,12 @@ variable "memory" {
   default     = "512Mi"
 }
 
+variable "cpu" {
+  description = "Cloud Run container CPU limit (e.g., 1, 2, 4)"
+  type        = string
+  default     = "2"
+}
+
 variable "max_instance_count" {
   description = "Cloud Run max instances"
   type        = number
