@@ -10,7 +10,7 @@ resource "google_workflows_workflow" "main" {
     steps:
       - init:
           assign:
-            - project: ${local.project_id}
+            - project: ${var.project_id}
             - region: ${var.region}
             - job: ${module.cloud_run_job.job_name}
       - skipFolderPlaceholder:

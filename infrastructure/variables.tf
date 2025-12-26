@@ -13,6 +13,11 @@ variable "system" {
   description = "System name for default labels."
 }
 
+variable "project_id" {
+  type        = string
+  description = "GCP project ID."
+}
+
 variable "region" {
   type        = string
   description = "Default region for resources that require it."

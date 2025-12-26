@@ -1,5 +1,5 @@
 data "google_project" "project" {
-  project_id = local.project_id
+  project_id = var.project_id
 }
 
 data "google_secret_manager_secret_version" "discord_webhook_info" {

@@ -1,6 +1,4 @@
 locals {
-  project_id = lower("${var.system}-${var.environment}")
-
   required_services = [
     "artifactregistry.googleapis.com",
     "compute.googleapis.com",
