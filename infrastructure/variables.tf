@@ -11,7 +11,6 @@ variable "environment" {
 variable "system" {
   type        = string
   description = "System name for default labels."
-  default     = "podcast-automator"
 }
 
 variable "region" {

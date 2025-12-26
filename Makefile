@@ -13,6 +13,7 @@
 .PHONY: terraform-format  # format terraform code
 .PHONY: terraform-validate  # validate terraform code
 .PHONY: terraform-all  # format and validate terraform code
+.PHONY: terraform-reconfigure # terraform init -reconfigure
 .PHONY: terraform-deploy-dev  # deploy to develop environment
 .PHONY: terraform-destroy-dev  # destroy the develop environment
 .PHONY: terraform-deploy-prod  # deploy to production environment
@@ -73,6 +74,9 @@ terraform-docker-build:
 
 terraform-setup: terraform-docker-build
 	$(TERRAFORM_BASE_COMMAND) init -backend-config=environments/${ENVIRONMENT}/backend.conf
+
+terraform-reconfigure: terraform-docker-build
+	$(TERRAFORM_BASE_COMMAND) init -backend-config=environments/${ENVIRONMENT}/backend.conf -reconfigure
 
 terraform-upgrade: terraform-docker-build
 	$(TERRAFORM_BASE_COMMAND) init -upgrade -backend-config=environments/${ENVIRONMENT}/backend.conf
