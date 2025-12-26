@@ -16,7 +16,7 @@ provider "google" {
   region  = var.region
 
   default_labels = {
-    org         = "sunaba-log"
+    org         = "sunabalog"
     environment = var.environment
     system      = var.system
   }
