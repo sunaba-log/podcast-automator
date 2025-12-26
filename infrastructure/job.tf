@@ -1,5 +1,5 @@
 module "cloud_run_job" {
-  source = "./modules/gcp/docker_based_cloud_run_job"
+  source = "./modules/google/docker_based_cloud_run_job"
 
   project_id                     = var.project_id
   region                         = var.region
