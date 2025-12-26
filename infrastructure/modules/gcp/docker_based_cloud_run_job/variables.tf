@@ -84,3 +84,9 @@ variable "environment_variables" {
   type        = map(string)
   default     = {}
 }
+
+variable "deletion_protection" {
+  description = "Whether to enable deletion protection on the Cloud Run job"
+  type        = bool
+  default     = false
+}
