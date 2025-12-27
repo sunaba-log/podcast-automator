@@ -56,7 +56,7 @@ flowchart TD
   - `DISCORD_WEBHOOK_INFO_URL` / `DISCORD_WEBHOOK_ERROR_URL` = Secret Manager から取得した値
   - `TRIGGER_FILE` = Workflows から渡されるオブジェクト名
 - 設定値 (root `job.tf`):
-  - timeout: `540s`
+  - timeout: `3600s`
   - memory: `8Gi`
   - cpu: `2`
   - max instances: `1`

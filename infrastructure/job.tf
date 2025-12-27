@@ -12,7 +12,7 @@ module "cloud_run_job" {
   job_name                       = "${var.system}-app-${var.environment}"
   service_account_email          = local.default_compute_service_account
 
-  timeout            = "540s"
+  timeout            = "3600s"
   memory             = "8Gi"
   cpu                = "2"
   max_instance_count = 1
