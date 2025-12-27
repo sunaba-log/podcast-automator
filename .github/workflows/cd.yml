@@ -2,6 +2,12 @@ name: CD
 
 on:
   workflow_dispatch:
+    inputs:
+      target_branch:
+        description: "Branch to deploy"
+        required: true
+        default: "develop"
+        type: string
   push:
     branches:
       - main
@@ -12,23 +18,30 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Set target ref
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.target_branch }}" ]]; then
+            echo "TARGET_REF=refs/heads/${{ inputs.target_branch }}" >> "$GITHUB_ENV"
+          else
+            echo "TARGET_REF=${GITHUB_REF}" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_REF }}
 
       - name: Set env vars
         run: |
-          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+          if [[ "${TARGET_REF}" == "refs/heads/main" ]]; then
             echo "ENVIRONMENT=prod" >> "$GITHUB_ENV"
-          elif [[ "${GITHUB_REF}" == "refs/heads/develop" ]]; then
-            echo "ENVIRONMENT=dev" >> "$GITHUB_ENV"
           else
-            echo "${GITHUB_REF} is not a deployment target. Skipping deployment."
-            exit 0
+            echo "ENVIRONMENT=dev" >> "$GITHUB_ENV"
           fi
 
       - name: Set GCP credentials
         run: |
           mkdir -p "$HOME/.config/gcloud/credentials"
-          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+          if [[ "${TARGET_REF}" == "refs/heads/main" ]]; then
             echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_BASE64_PROD }}" | base64 --decode > "$HOME/.config/gcloud/credentials/service-account.json"
           else
             echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_BASE64_DEV }}" | base64 --decode > "$HOME/.config/gcloud/credentials/service-account.json"
@@ -55,14 +68,12 @@ jobs:
 
       - name: Deploy
         run: |
-          if [[ $GITHUB_REF == "refs/heads/main" ]]; then
+          if [[ $TARGET_REF == "refs/heads/main" ]]; then
             echo "Deploying to production..."
             make terraform-deploy-prod DEPLOY_COMMAND_EXTENSION="-auto-approve"
-          elif [[ $GITHUB_REF == "refs/heads/develop" ]]; then
+          else
             echo "Deploying to dev..."
             make terraform-deploy-dev DEPLOY_COMMAND_EXTENSION="-auto-approve"
-          else
-            echo "Branch not recognized. Skipping deployment."
           fi
 
   report:
