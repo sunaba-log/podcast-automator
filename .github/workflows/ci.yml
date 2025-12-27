@@ -108,3 +108,59 @@ jobs:
 
       - name: Terraform validate
         run: make terraform-validate
+
+  discord_notify_success:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [app, infrastructure]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: technote-space/workflow-conclusion-action@v3
+
+      - name: Notify Discord on SUCCESS
+        if: env.WORKFLOW_CONCLUSION == 'success'
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "username": "GitHub Actions",
+              "embeds": [
+                {
+                  "title": "🎉 Workflow Succeeded",
+                  "color": 5763719,
+                  "fields": [
+                    { "name": "Actor", "value": "${{ github.actor }}" },
+                    { "name": "Run URL", "value": "${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }}" }
+                  ]
+                }
+              ]
+            }' \
+            ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+  discord_notify_failure:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [app, infrastructure]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: technote-space/workflow-conclusion-action@v3
+
+      - name: Notify Discord on FAILURE
+        if: env.WORKFLOW_CONCLUSION == 'failure'
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "username": "GitHub Actions",
+              "embeds": [
+                {
+                  "title": "🚨 Workflow Failed",
+                  "color": 15548997,
+                  "fields": [
+                    { "name": "Actor", "value": "${{ github.actor }}" },
+                    { "name": "Run URL", "value": "${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }}" }
+                  ]
+                }
+              ]
+            }' \
+            ${{ secrets.DISCORD_WEBHOOK_URL }}
