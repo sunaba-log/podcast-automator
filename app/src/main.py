@@ -89,10 +89,10 @@ def send_discord_notification(
         body = ""
         try:
             body = exc.read(2048).decode("utf-8", errors="replace")
-        except Exception:
+        except OSError:
             body = ""
         detail = body.strip() or str(exc.reason)
-        logger.error("Discord webhook returned HTTP %s: %s", exc.code, detail)
+        logger.exception("Discord webhook returned HTTP %s: %s", exc.code, detail)
     except Exception:
         logger.exception("Failed to send Discord notification")
 
