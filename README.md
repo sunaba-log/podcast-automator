@@ -52,6 +52,7 @@ make docker-build
 
 Terraform は Docker コンテナで実行する前提です。`Makefile` が用意されています。
 `.env.sample` に `GOOGLE_APPLICATION_CREDENTIALS` の例があります。
+ローカルからデプロイする場合は、サービスアカウントの JSON を配置し、そのパスを `.env` の `GOOGLE_APPLICATION_CREDENTIALS` に設定してください。
 
 ### デプロイ手段
 
@@ -59,6 +60,7 @@ Terraform は Docker コンテナで実行する前提です。`Makefile` が用
   - `develop` / `main` への push で自動実行
   - `workflow_dispatch` でブランチ指定デプロイ
 - ローカルから `make terraform-deploy-{dev,prod}` でデプロイ
+  - ローカル実行時は、サービスアカウントの JSON を配置し、`.env` の `GOOGLE_APPLICATION_CREDENTIALS` にパスを設定してください
 
 ```bash
 # 例: dev 環境のデプロイ
