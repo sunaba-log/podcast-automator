@@ -1,6 +1,6 @@
 resource "google_cloud_run_v2_job" "job" {
-  name     = var.job_name
-  location = var.region
+  name                = var.job_name
+  location            = var.region
   deletion_protection = var.deletion_protection
 
   template {
