@@ -26,8 +26,20 @@ jobs:
       - name: Prepare .env
         working-directory: app
         run: |
-          if [ -f .env.sample ] && [ ! -f .env ]; then
-            cp .env.sample .env
+          if [ -f .env.sample ]; then
+            awk -F= '
+              BEGIN { OFS=FS }
+              /^[[:space:]]*#/ { print; next }
+              /^[[:space:]]*$/ { print; next }
+              {
+                key=$1
+                if (key == "GOOGLE_APPLICATION_CREDENTIALS" && ENVIRON[key] != "") {
+                  print key, ENVIRON[key]
+                } else {
+                  print $0
+                }
+              }
+            ' .env.sample > .env
           fi
 
       - name: Install dependencies
@@ -48,7 +60,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set GCP Credentials based on branch
+      - name: Set env vars
+        run: |
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "ENVIRONMENT=prod" >> "$GITHUB_ENV"
+          else
+            echo "ENVIRONMENT=dev" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set GCP credentials
         run: |
           mkdir -p "$HOME/.config/gcloud/credentials"
           if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
@@ -58,14 +78,5 @@ jobs:
           fi
           echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/credentials/service-account.json" >> "$GITHUB_ENV"
 
-      - name: Terraform fmt
-        working-directory: infrastructure
-        run: terraform fmt -check -recursive
-
-      - name: Terraform init
-        working-directory: infrastructure
-        run: terraform init -backend=false
-
       - name: Terraform validate
-        working-directory: infrastructure
-        run: terraform validate
+        run: make terraform-validate
