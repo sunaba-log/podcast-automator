@@ -27,9 +27,9 @@ jobs:
         run: |
           mkdir -p "$HOME/.config/gcloud/credentials"
           if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
-            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_PROD }}" > "$HOME/.config/gcloud/credentials/service-account.json"
+            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_BASE64_PROD }}" | base64 --decode > "$HOME/.config/gcloud/credentials/service-account.json"
           else
-            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_DEV }}" > "$HOME/.config/gcloud/credentials/service-account.json"
+            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_BASE64_DEV }}" | base64 --decode > "$HOME/.config/gcloud/credentials/service-account.json"
           fi
           echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/credentials/service-account.json" >> "$GITHUB_ENV"
 
@@ -82,9 +82,9 @@ jobs:
         run: |
           mkdir -p "$HOME/.config/gcloud/credentials"
           if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
-            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_PROD }}" > "$HOME/.config/gcloud/credentials/service-account.json"
+            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_BASE64_PROD }}" | base64 --decode > "$HOME/.config/gcloud/credentials/service-account.json"
           else
-            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_DEV }}" > "$HOME/.config/gcloud/credentials/service-account.json"
+            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_BASE64_DEV }}" | base64 --decode > "$HOME/.config/gcloud/credentials/service-account.json"
           fi
           echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/credentials/service-account.json" >> "$GITHUB_ENV"
 
