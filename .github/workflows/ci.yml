@@ -23,6 +23,16 @@ jobs:
       - name: Install uv
         run: python -m pip install --upgrade pip uv
 
+      - name: Set GCP credentials
+        run: |
+          mkdir -p "$HOME/.config/gcloud/credentials"
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_PROD }}" > "$HOME/.config/gcloud/credentials/service-account.json"
+          else
+            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_DEV }}" > "$HOME/.config/gcloud/credentials/service-account.json"
+          fi
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/credentials/service-account.json" >> "$GITHUB_ENV"
+
       - name: Prepare .env
         working-directory: app
         run: |
