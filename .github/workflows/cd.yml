@@ -1,0 +1,78 @@
+name: CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set env vars
+        run: |
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "ENVIRONMENT=prod" >> "$GITHUB_ENV"
+          elif [[ "${GITHUB_REF}" == "refs/heads/develop" ]]; then
+            echo "ENVIRONMENT=dev" >> "$GITHUB_ENV"
+          else
+            echo "${GITHUB_REF} is not a deployment target. Skipping deployment."
+            exit 0
+          fi
+
+      - name: Set GCP credentials
+        run: |
+          mkdir -p "$HOME/.config/gcloud/credentials"
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_BASE64_PROD }}" | base64 --decode > "$HOME/.config/gcloud/credentials/service-account.json"
+          else
+            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_BASE64_DEV }}" | base64 --decode > "$HOME/.config/gcloud/credentials/service-account.json"
+          fi
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/credentials/service-account.json" >> "$GITHUB_ENV"
+
+      - name: Prepare .env
+        run: |
+          if [ -f .env.sample ]; then
+            awk -F= '
+              BEGIN { OFS=FS }
+              /^[[:space:]]*#/ { print; next }
+              /^[[:space:]]*$/ { print; next }
+              {
+                key=$1
+                if (key == "GOOGLE_APPLICATION_CREDENTIALS" && ENVIRON[key] != "") {
+                  print key, ENVIRON[key]
+                } else {
+                  print $0
+                }
+              }
+            ' .env.sample > .env
+          fi
+
+      - name: Deploy
+        run: |
+          if [[ $GITHUB_REF == "refs/heads/main" ]]; then
+            echo "Deploying to production..."
+            make terraform-deploy-prod DEPLOY_COMMAND_EXTENSION="-auto-approve"
+          elif [[ $GITHUB_REF == "refs/heads/develop" ]]; then
+            echo "Deploying to dev..."
+            make terraform-deploy-dev DEPLOY_COMMAND_EXTENSION="-auto-approve"
+          else
+            echo "Branch not recognized. Skipping deployment."
+          fi
+
+  report:
+    if: always()
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Discord
+        uses: sarisia/actions-status-discord@v1
+        if: always()
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: ${{ needs.deploy.result }}

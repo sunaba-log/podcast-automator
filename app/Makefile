@@ -15,6 +15,9 @@
 
 SHELL := /bin/bash
 TEST_FOLDER := tests
+IMAGE_NAME ?= podcast-automator-app
+DOCKER_TAG ?= :latest
+DOCKER_PLATFORM ?= linux/amd64
 
 all: install fix lint test
 
@@ -52,7 +55,7 @@ clean:
 	rm -rf .pytest* .ruff* .coverage dist .venv
 
 docker-build:
-	cd .. && DOCKER_BUILDKIT=1 docker build -f app/Dockerfile . -t podcast-automator${DOCKER_TAG}
+	cd .. && DOCKER_BUILDKIT=1 docker buildx build --platform $(DOCKER_PLATFORM) --load -f app/Dockerfile . -t $(IMAGE_NAME)$(DOCKER_TAG)
 
 jupyter:
 	uv run jupyter lab

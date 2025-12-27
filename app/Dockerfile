@@ -24,4 +24,4 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 COPY --from=builder /workspace/.venv /workspace/.venv
 COPY ${APP_DIR}/src ./src
 ENV PYTHONPATH=/workspace/src
-CMD [ "python", "-m", "main" ]
+ENTRYPOINT [ "python", "-m", "main" ]
