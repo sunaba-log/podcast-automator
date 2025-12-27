@@ -20,6 +20,8 @@
 .PHONY: terraform-destroy-prod  # destroy the production environment
 .PHONY: terraform-clean # removes local created terraform resources
 
+-include .env
+
 SHELL := /bin/bash
 
 SYSTEMS_DOCKER = app
@@ -41,8 +43,10 @@ INTERACTIVE_FLAG := $(shell [ -t 0 ] && echo "-it")
 SSH_SETTINGS=-v ~/.ssh:/root/.ssh:ro -v ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
 LOCAL_HOST_UID := $(shell id -u)
 DOCKER_SOCKET_SETTINGS := $(shell if [ -S /run/user/${LOCAL_HOST_UID}/docker.sock ]; then echo "-v /run/user/${LOCAL_HOST_UID}/docker.sock:/var/run/docker.sock:ro"; else echo "-v /var/run/docker.sock:/var/run/docker.sock"; fi)
-GCP_CREDENTIALS_SETTINGS := $(shell if [ -n "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then echo "-v $(GOOGLE_APPLICATION_CREDENTIALS):$(GOOGLE_APPLICATION_CREDENTIALS):ro"; fi)
-TERRAFORM_BASE_COMMAND=docker run --rm ${INTERACTIVE_FLAG} --env-file .env -v $(PWD):/work -w /work/infrastructure ${DOCKER_SOCKET_SETTINGS} ${SSH_SETTINGS} ${GCP_CREDENTIALS_SETTINGS} terraform:latest
+GOOGLE_APPLICATION_CREDENTIALS_ABS := $(shell if [ -n "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then echo $(GOOGLE_APPLICATION_CREDENTIALS); fi)
+GOOGLE_APPLICATION_CREDENTIALS_CONTAINER := /root/google-credentials.json
+GOOGLE_SETTINGS := $(shell if [ -n "$(GOOGLE_APPLICATION_CREDENTIALS_ABS)" ]; then echo "-e GOOGLE_APPLICATION_CREDENTIALS=$(GOOGLE_APPLICATION_CREDENTIALS_CONTAINER) -v $(GOOGLE_APPLICATION_CREDENTIALS_ABS):$(GOOGLE_APPLICATION_CREDENTIALS_CONTAINER):ro"; fi)
+TERRAFORM_BASE_COMMAND=docker run --rm ${INTERACTIVE_FLAG} --env-file .env -v $(PWD):/work -w /work/infrastructure ${DOCKER_SOCKET_SETTINGS} ${SSH_SETTINGS} ${GOOGLE_SETTINGS} terraform:latest
 
 define SYSTEM_TARGET
 $1: $2

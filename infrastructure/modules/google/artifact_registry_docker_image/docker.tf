@@ -23,7 +23,7 @@ resource "null_resource" "docker_push" {
   provisioner "local-exec" {
     command = <<EOF
         set -e
-        gcloud auth configure-docker ${var.region}-docker.pkg.dev --quiet
+        cat "$GOOGLE_APPLICATION_CREDENTIALS" | docker login -u _json_key --password-stdin https://${var.region}-docker.pkg.dev
         docker tag ${local.docker_image_latest} ${local.docker_image}
         docker push ${local.docker_image}
     EOF
