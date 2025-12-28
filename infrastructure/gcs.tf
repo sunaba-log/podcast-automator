@@ -6,6 +6,10 @@ resource "google_storage_bucket" "input" {
 
   force_destroy = var.input_bucket_force_destroy
 
+  lifecycle {
+    prevent_destroy = var.environment == "prod"
+  }
+
   dynamic "lifecycle_rule" {
     for_each = var.input_retention_days != null ? [1] : []
     content {
