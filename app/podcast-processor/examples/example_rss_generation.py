@@ -9,7 +9,7 @@ from pathlib import Path
 # 親ディレクトリのservicesモジュールをインポート
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from services.rss_generator import PodcastRssManager
+from services import PodcastRssManager
 
 # === 既存RSS XMLから抽出した値 ===
 PODCAST_TITLE = "sunabalog"

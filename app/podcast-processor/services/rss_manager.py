@@ -8,6 +8,21 @@ from feedgen.feed import FeedGenerator
 
 class PodcastRssManager:
     def __init__(self, rss_xml: str | None = None):
+        """ポッドキャストRSS管理クラス.
+        Args:
+            rss_xml: 既存のRSS XML文字列. 指定しない場合は None.
+
+        Methods:
+            add_episode(episode_data): 新しいエピソードを追加.
+            update_episode(episode_id, updated_data): 既存のエピソードを更新.
+            delete_episode(episode_id): エピソードを削除.
+            get_total_episodes(): エピソード数を取得.
+            get_latest_episode(): 最新エピソード情報を取得.
+            update_title(new_title): タイトルを更新.
+            update_description(new_description): 説明を更新.
+            update_category(new_category): カテゴリを更新.
+            generate_podcast_rss(...): 新しいポッドキャストRSSを生成.
+        """
         self.rss_xml = rss_xml if rss_xml is not None else None
         self.fg = None
         if self.rss_xml is None:
@@ -34,9 +49,11 @@ class PodcastRssManager:
 
             # チャンネル（feed）情報を抽出
             feed_info = feed.feed
-            self.fg.title(feed_info.get("title", "Untitled"))
-            self.fg.description(feed_info.get("summary", feed_info.get("subtitle", "")))
-            self.fg.language(feed_info.get("language", "en"))
+            self.fg.title(feed_info.get("title", "sunabalog"))
+            self.fg.description(
+                feed_info.get("summary", feed_info.get("subtitle", "30 Days to Build (or Not)"))
+            )
+            self.fg.language(feed_info.get("language", "ja"))
 
             # リンク情報を抽出
             for link in feed_info.get("links", []):
@@ -147,6 +164,45 @@ class PodcastRssManager:
             raise RuntimeError(
                 "RSS feed not loaded. Initialize with rss_xml or call generate_podcast_rss first."
             )
+
+    def get_total_episodes(self) -> int:
+        """RSSフィード内のエピソード数を取得."""
+        self._ensure_fg_loaded()
+        return len(self.fg.entrys)
+
+    def get_latest_episode(self) -> dict | None:
+        """最新のエピソード情報を取得.
+
+        Returns:
+            最新エピソードの情報を含む辞書、またはエピソードが存在しない場合は None.
+        """
+        self._ensure_fg_loaded()
+        if not self.fg.entrys:
+            return None
+
+        latest_entry = self.fg.entrys[-1]
+        episode_info = {
+            "title": latest_entry.title(),
+            "description": latest_entry.description(),
+            "guid": latest_entry.id(),
+            "link": latest_entry.link(),
+        }
+
+        # エンクロージャ情報
+        enclosures = latest_entry.enclosures()
+        if enclosures:
+            enclosure = enclosures[0]
+            episode_info.update(
+                {
+                    "audio_url": enclosure["url"],
+                    "mime_type": enclosure.get("type", "audio/mpeg"),
+                    "file_size": int(enclosure.get("length", "0"))
+                    if str(enclosure.get("length", "0")).isdigit()
+                    else 0,
+                }
+            )
+
+        return episode_info
 
     def update_title(self, new_title: str):
         """RSS XMLのタイトルを更新.
@@ -516,5 +572,4 @@ class PodcastRssManager:
         """
         if self.rss_xml is None:
             raise ValueError("RSS XML has not been generated or set")
-        return self.rss_xml
         return self.rss_xml
