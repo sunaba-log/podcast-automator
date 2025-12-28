@@ -4,13 +4,13 @@ resource "google_storage_bucket" "input" {
 
   uniform_bucket_level_access = true
 
-  force_destroy = var.input_bucket_force_destroy
+  force_destroy = var.gcs_force_destroy
 
   dynamic "lifecycle_rule" {
-    for_each = var.input_retention_days != null ? [1] : []
+    for_each = var.gcs_retention_days != null ? [1] : []
     content {
       condition {
-        age = var.input_retention_days
+        age = var.gcs_retention_days
       }
       action {
         type = "Delete"

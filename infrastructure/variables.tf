@@ -30,18 +30,18 @@ variable "region" {
   default     = "asia-northeast1"
 }
 
-variable "input_retention_days" {
+variable "gcs_retention_days" {
   type        = number
   description = "Days to retain input audio objects before deletion. Omit or set null to disable lifecycle deletion."
   default     = null
 
   validation {
-    condition     = var.input_retention_days == null || var.input_retention_days > 0
-    error_message = "input_retention_days must be null (disabled) or a positive number."
+    condition     = var.gcs_retention_days == null || var.gcs_retention_days > 0
+    error_message = "gcs_retention_days must be null (disabled) or a positive number."
   }
 }
 
-variable "input_bucket_force_destroy" {
+variable "gcs_force_destroy" {
   type        = bool
   description = "Allow Terraform to delete the input bucket even if it contains objects."
   default     = false
