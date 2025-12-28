@@ -6,3 +6,6 @@ requests
 feedgen     
 feedparser
 pytz
+google-cloud-secret-manager
+pydantic
+pydub

@@ -1,8 +1,9 @@
 """GCS操作ライブラリ."""
 
-from google.cloud import storage
 import logging
 from typing import Optional
+
+from google.cloud import storage
 
 logger = logging.getLogger(__name__)
 
@@ -11,17 +12,23 @@ class GCSClient:
     def __init__(self, project_id: str):
         self.client = storage.Client(project=project_id)
 
-    def download_blob(
-        self, bucket_name: str, object_name: str, destination_file_path: str
-    ) -> None:
-        """GCS から blob をダウンロード."""
+    def download_blob(self, bucket_name: str, object_name: str, destination_file_path: str) -> None:
+        """GCS から blob をダウンロード.
+        Docs: https://docs.cloud.google.com/storage/docs/downloading-objects?hl=ja
+        Args:
+            bucket_name: GCS バケット名.
+            object_name: ダウンロードするオブジェクト名.
+            destination_file_path: ダウンロード先のローカルファイルパス.
+        Returns:
+            None
+        Raises:
+            Exception: ダウンロードに失敗した場合.
+        """
         try:
             bucket = self.client.bucket(bucket_name)
             blob = bucket.blob(object_name)
             blob.download_to_filename(destination_file_path)
-            logger.info(
-                f"Downloaded gs://{bucket_name}/{object_name} to {destination_file_path}"
-            )
+            logger.info(f"Downloaded gs://{bucket_name}/{object_name} to {destination_file_path}")
         except Exception as e:
             logger.error(f"Failed to download blob: {e}")
             raise
