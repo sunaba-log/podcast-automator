@@ -3,6 +3,7 @@ from pathlib import Path
 
 from google import genai
 from google.genai.types import GenerateContentConfig, Part
+from pydantic import BaseModel, Field
 
 # 参考：https://github.com/GoogleCloudPlatform/generative-ai/blob/main/gemini/use-cases/multimodal-sentiment-analysis/intro_to_multimodal_sentiment_analysis.ipynb
 
@@ -24,8 +25,29 @@ AUDIO_FORMAT_MAPPING = {
 }
 
 
+# 構造化出力用モデル
+# https://ai.google.dev/gemini-api/docs/structured-output?hl=ja&example=recipe
+class Summary(BaseModel):
+    title: str = Field(..., description="会議の見出し")
+    description: str = Field(..., description="会議内容の説明文")
+
+
 class AudioAnalyzer:
-    """Gemini APIを使った音声分析クラス."""
+    """Gemini APIを使った音声分析クラス.
+
+    音声ファイルの文字起こしと要約を生成する機能を提供。
+
+    Args:
+        project_id: GCPプロジェクトID. 指定しない場合は環境変数から取得.
+        location: リージョン. デフォルトは us-central1.
+
+    Raises:
+        ValueError: project_idが指定されていない場合.
+
+    Methods:
+        generate_transcript(gcs_uri, model_id): 音声ファイルの文字起こしを生成.
+        summarize_transcript(transcript, prompt, model_id): 文字起こしの要約を生成.
+    """
 
     DEFAULT_MODEL_ID = "gemini-2.0-flash-001"
     DEFAULT_LOCATION = "us-central1"
@@ -99,8 +121,8 @@ class AudioAnalyzer:
         return response.text
 
     def summarize_transcript(
-        self, transcript: str, prompt: str = "", model_id: str | None = None
-    ) -> str:
+        self, transcript: str, prompt: str | None = None, model_id: str | None = None
+    ) -> Summary:
         """Geminiモデルを使って文字起こしの要約を生成.
 
         Args:
@@ -114,17 +136,19 @@ class AudioAnalyzer:
         model_id = model_id or self.DEFAULT_MODEL_ID
 
         if not prompt:
-            prompt = f"Summarize the following transcript in a concise manner:\n\n{transcript}"
-
+            prompt = f"Summarize the following transcript in a concise manner in Japanese:\n\n{transcript}"
         response = self.client.models.generate_content(
             model=model_id,
             contents=[prompt],
             config=GenerateContentConfig(
                 temperature=0.3,
                 max_output_tokens=2000,
+                response_mime_type="application/json",
+                response_json_schema=Summary.model_json_schema(),
             ),
         )
-        return response.text
+        summary = Summary.model_validate_json(response.text)
+        return summary
 
 
 # 後方互換性のための関数ラッパー
