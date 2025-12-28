@@ -57,6 +57,11 @@ variable "cloudflare_account_id" {
   description = "Cloudflare account ID that owns the R2 bucket."
 }
 
+variable "cloudflare_zone_name" {
+  type        = string
+  description = "Cloudflare zone name (e.g., example.com) for the custom domain."
+}
+
 variable "r2_bucket_name" {
   type        = string
   description = "Cloudflare R2 bucket name for podcast assets."

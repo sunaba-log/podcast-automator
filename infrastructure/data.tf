@@ -9,3 +9,8 @@ data "google_secret_manager_secret_version" "discord_webhook_info" {
 data "google_secret_manager_secret_version" "discord_webhook_error" {
   secret = var.discord_webhook_error_secret_name
 }
+data "cloudflare_zone" "main" {
+  filter = {
+    name = var.cloudflare_zone_name
+  }
+}
