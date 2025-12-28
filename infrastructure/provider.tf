@@ -47,7 +47,7 @@ provider "google-beta" {
 
 provider "aws" {
   alias      = "r2"
-  region     = var.region
+  region     = "auto"
   access_key = var.cloudflare_access_key_id
   secret_key = var.cloudflare_secret_access_key
 
