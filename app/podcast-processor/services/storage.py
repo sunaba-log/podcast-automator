@@ -125,7 +125,7 @@ class R2Client:
     def generate_public_url(self, remote_key: str, custom_domain: Optional[str] = None) -> str:
         """R2 ファイルの公開 URL を生成."""
         if custom_domain:
-            return f"{custom_domain}/{remote_key}"
+            return f"https://{custom_domain}/{remote_key}"
         return f"{self.endpoint_url}/{self.bucket_name}/{remote_key}"
 
 
@@ -248,7 +248,14 @@ def transfer_gcs_to_r2(
             blob.download_to_file(file_buffer)
             file_buffer.seek(0)
 
-            file_size_bytes, duration_str = get_audio_info(file_buffer=file_buffer, format=format)
+            # オーディオ情報を取得
+            try:
+                file_size_bytes, duration_str = get_audio_info(
+                    file_buffer=file_buffer, format=format
+                )
+            except Exception as e:
+                logger.warning(f"Failed to get audio info: {e}")
+                file_size_bytes, duration_str = -1, "00:00:00"
 
             # R2 にファイルをアップロード
             r2_url = r2_client.upload_file(
@@ -270,9 +277,10 @@ def transfer_gcs_to_r2(
 def get_audio_info(file_buffer: io.BytesIO, format: str) -> list:
     # ファイルのサイズ（バイト数）を取得
     file_size_bytes = file_buffer.getbuffer().nbytes
+    print(f"File size: {file_size_bytes} bytes")
 
     # ボイスメモで収録したm4aファイルを読み込む
-    sounds = AudioSegment.from_file(file_buffer, format=format)
+    sounds = AudioSegment.from_file(file=file_buffer, format=format)
     # 基本情報の表示
     print(f"channel: {sounds.channels}")
     print(f"frame rate: {sounds.frame_rate}")
