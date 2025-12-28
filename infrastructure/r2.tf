@@ -12,13 +12,13 @@ resource "cloudflare_r2_custom_domain" "main" {
 }
 
 resource "cloudflare_r2_bucket_lifecycle" "r2_expire" {
-  count      = var.environment == "dev" ? 1 : 0
-  account_id = var.cloudflare_account_id
+  count       = var.environment == "dev" ? 1 : 0
+  account_id  = var.cloudflare_account_id
   bucket_name = var.r2_bucket_name
 
   rules = [{
-    id        = "expire-objects-${var.r2_retention_days}d"
-    enabled   = true
+    id      = "expire-objects-${var.r2_retention_days}d"
+    enabled = true
     conditions = {
       prefix = ""
     }
