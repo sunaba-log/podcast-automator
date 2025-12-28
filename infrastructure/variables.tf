@@ -66,3 +66,8 @@ variable "r2_bucket_name" {
   type        = string
   description = "Cloudflare R2 bucket name for podcast assets."
 }
+
+variable "r2_subdomain" {
+  type        = string
+  description = "Subdomain part for the custom domain (e.g., dev.podcast-test)."
+}
