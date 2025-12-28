@@ -20,6 +20,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "r2_dev_expire" {
     id     = "expire-objects-3d"
     status = "Enabled"
 
+    filter {}
+
     expiration {
       days = 3
     }
