@@ -51,3 +51,13 @@ variable "discord_webhook_error_secret_name" {
   type        = string
   description = "Secret Manager secret name for Discord error webhook URL."
 }
+
+variable "cloudflare_account_id" {
+  type        = string
+  description = "Cloudflare account ID that owns the R2 bucket."
+}
+
+variable "r2_bucket_name" {
+  type        = string
+  description = "Cloudflare R2 bucket name for podcast assets."
+}

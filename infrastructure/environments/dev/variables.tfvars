@@ -5,3 +5,5 @@ input_bucket_force_destroy        = true
 input_retention_days              = 3
 discord_webhook_info_secret_name  = "discord-webhook-url-dev-info"
 discord_webhook_error_secret_name = "discord-webhook-url-dev-error"
+cloudflare_account_id             = "8ed20f6872cea7c9219d68bfcf5f98ae"
+r2_bucket_name                    = "podcast-test-dev"
