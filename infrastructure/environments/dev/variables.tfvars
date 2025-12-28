@@ -9,3 +9,4 @@ cloudflare_account_id             = "8ed20f6872cea7c9219d68bfcf5f98ae"
 cloudflare_zone_name              = "sunabalog.com"
 r2_bucket_name                    = "podcast-test-dev"
 r2_subdomain                      = "dev.podcast-test"
+r2_retention_days                 = 3
