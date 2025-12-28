@@ -90,12 +90,13 @@ generator.add_episode(
 
 # 4. XML取得
 xml = generator.get_rss_xml()
+print(generator.get_total_episodes(), "エピソード数を生成済み")
 
 # 5. 結果の表示（オプション）
 print(xml)
 
 # または、ファイルに保存
-with open("output/output_rss_feed.xml", "w", encoding="utf-8") as f:
+with open("./output/output_rss_feed.xml", "w", encoding="utf-8") as f:
     f.write(xml)
 print("\n✅ RSS feed generated and saved to output/output_rss_feed.xml")
 
@@ -108,12 +109,12 @@ print("パート2: RSS フィードの更新テスト")
 print("=" * 80 + "\n")
 
 # 1. 既存のRSSフィードを読み込む
-with open("output/output_rss_feed.xml", "r", encoding="utf-8") as f:
+with open("./output/output_rss_feed.xml", "r", encoding="utf-8") as f:
     existing_rss = f.read()
 
 # 2. 読み込んだRSSでジェネレータを初期化
 generator_updated = PodcastRssManager(rss_xml=existing_rss)
-
+print(generator_updated.get_total_episodes(), "エピソード数を読み込み済み")
 # 3. タイトルを更新
 print("📝 タイトルを更新中...")
 generator_updated.update_title("sunabalog - 更新版")
@@ -158,9 +159,10 @@ generator_updated.add_episode(
 
 # 8. 更新されたXMLを取得
 updated_xml = generator_updated.get_rss_xml()
+print(generator_updated.get_total_episodes(), "エピソード数を更新済み")
 
 # 9. 更新されたXMLをファイルに保存
-with open("output/output_rss_feed_updated.xml", "w", encoding="utf-8") as f:
+with open("./output/output_rss_feed_updated.xml", "w", encoding="utf-8") as f:
     f.write(updated_xml)
 print("\n✅ 更新されたRSS feed を保存: output/output_rss_feed_updated.xml")
 

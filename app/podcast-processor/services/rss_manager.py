@@ -25,6 +25,7 @@ class PodcastRssManager:
         """
         self.rss_xml = rss_xml if rss_xml is not None else None
         self.fg = None
+        self.total_episodes = 0
         if self.rss_xml is None:
             print(
                 "No existing RSS XML provided; execute generate_podcast_rss to create a new feed before updating."
@@ -167,8 +168,7 @@ class PodcastRssManager:
 
     def get_total_episodes(self) -> int:
         """RSSフィード内のエピソード数を取得."""
-        self._ensure_fg_loaded()
-        return len(self.fg.entrys)
+        return self.total_episodes
 
     def get_latest_episode(self) -> dict | None:
         """最新のエピソード情報を取得.
@@ -296,6 +296,7 @@ class PodcastRssManager:
         fe.podcast.itunes_episode_type(episode_type)
 
         self.rss_xml = self.fg.rss_str(pretty=True).decode("utf-8")
+        self.total_episodes += 1
 
     def update_episode(self, episode_id: str, updated_data: dict) -> None:
         """既存のエピソードを更新.
@@ -347,6 +348,7 @@ class PodcastRssManager:
                 self.fg.link(href=channel_link, rel="alternate")
 
                 # すべてのエントリを再度追加（更新対象以外）
+                self.total_episodes = 0
                 for j, entry_item in enumerate(feed.entries):
                     episode_data = {
                         "title": entry_item.get("title", "Untitled"),
@@ -456,6 +458,7 @@ class PodcastRssManager:
         self.fg.link(href=channel_link, rel="alternate")
 
         # 削除対象以外のエントリを再度追加
+        self.total_episodes = 0
         for i, entry in enumerate(feed.entries):
             if i == entry_index:
                 # 削除対象なのでスキップ
@@ -496,6 +499,8 @@ class PodcastRssManager:
             self.add_episode(episode_data)
 
         self.rss_xml = self.fg.rss_str(pretty=True).decode("utf-8")
+        self.total_episodes -= 1
+        print(self.total_episodes, "エピソード数を更新済み in delete_episode")
 
     def generate_podcast_rss(
         self,
