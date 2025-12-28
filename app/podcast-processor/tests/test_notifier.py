@@ -1,8 +1,8 @@
-import pytest
-from unittest.mock import patch, Mock
 import sys
 from pathlib import Path
-from services.notifier import split_message, send_discord_message, DISCORD_MESSAGE_LIMIT
+from unittest.mock import Mock, patch
+
+from services import DISCORD_MESSAGE_LIMIT, Notifier, split_message
 
 # 親ディレクトリのservicesモジュールをインポート
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -92,8 +92,9 @@ class TestSendDiscordMessage:
         mock_response = Mock()
         mock_response.status_code = 204
 
+        notifier = Notifier(webhook_url)
         with patch("services.notifier.requests.post", return_value=mock_response) as mock_post:
-            result = send_discord_message(webhook_url, message)
+            result = notifier.send_discord_message(message=message)
 
             assert result is True
             mock_post.assert_called_once()
@@ -106,8 +107,9 @@ class TestSendDiscordMessage:
         mock_response = Mock()
         mock_response.status_code = 204
 
+        notifier = Notifier(webhook_url)
         with patch("services.notifier.requests.post", return_value=mock_response) as mock_post:
-            result = send_discord_message(webhook_url, message)
+            result = notifier.send_discord_message(message=message)
 
             assert result is True
             # 3回のメッセージ送信が呼ばれることを確認
@@ -122,8 +124,9 @@ class TestSendDiscordMessage:
         mock_response = Mock()
         mock_response.status_code = 204
 
+        notifier = Notifier(webhook_url)
         with patch("services.notifier.requests.post", return_value=mock_response) as mock_post:
-            result = send_discord_message(webhook_url, message, username)
+            result = notifier.send_discord_message(message=message, username=username)
 
             assert result is True
             # ペイロードにカスタムユーザー名が含まれていることを確認
@@ -137,9 +140,9 @@ class TestSendDiscordMessage:
 
         mock_response = Mock()
         mock_response.status_code = 400  # エラーステータス
-
+        notifier = Notifier(webhook_url)
         with patch("services.notifier.requests.post", return_value=mock_response):
-            result = send_discord_message(webhook_url, message)
+            result = notifier.send_discord_message(message=message)
 
             assert result is False
 
@@ -149,6 +152,7 @@ class TestSendDiscordMessage:
         message = "Test message"
 
         with patch("services.notifier.requests.post", side_effect=Exception("Connection error")):
-            result = send_discord_message(webhook_url, message)
+            notifier = Notifier(webhook_url)
+            result = notifier.send_discord_message(message=message)
 
             assert result is False

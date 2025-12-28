@@ -1,4 +1,5 @@
 from typing import List
+
 import requests
 
 # Discord のメッセージ上限
@@ -52,36 +53,43 @@ def split_message(message: str, max_length: int = DISCORD_MESSAGE_LIMIT) -> List
     return messages
 
 
-def send_discord_message(
-    webhook_url: str, message: str, username: str = "Podcast Automator"
-) -> bool:
-    """
-    Discordにメッセージを送信する。
-    2000文字を超える場合は自動的に分割して送信する。
+class Notifier:
+    """通知サービスクライアント."""
 
-    Args:
-        webhook_url: Discord Webhook URL
-        message: 送信するメッセージ
-        username: Discordで表示するユーザー名
+    def __init__(self, discord_webhook_url: str):
+        """通知サービスクライアント.
 
-    Returns:
-        成功したかどうか
-    """
-    try:
-        messages = split_message(message)
-        for msg in messages:
-            payload = {"username": username, "content": msg}
-            response = requests.post(webhook_url, json=payload)
-            if response.status_code not in (200, 204):
-                print(f"Discord送信失敗: ステータス {response.status_code}")
-                return False
-        return True
+        Methods:
+        send_discord_message: Discordにメッセージを送信.
 
-    except Exception as e:
-        print(f"Discordメッセージ送信エラー: {str(e)}")
-        return False
+        Args:
+            discord_webhook_url: Discord Webhook URL
 
+        """
+        self.discord_webhook_url = discord_webhook_url
 
-def send_discord(status: str, title: str = "", error_message: str = ""):
-    """Discordへ通知を送信する関数"""
-    pass
+    def send_discord_message(self, message: str, username: str = "Podcast Automator") -> bool:
+        """
+        Discordにメッセージを送信する。
+        2000文字を超える場合は自動的に分割して送信する。
+
+        Args:
+            message: 送信するメッセージ
+            username: Discordで表示するユーザー名
+
+        Returns:
+            成功したかどうか
+        """
+        try:
+            messages = split_message(message)
+            for msg in messages:
+                payload = {"username": username, "content": msg}
+                response = requests.post(self.discord_webhook_url, json=payload)
+                if response.status_code not in (200, 204):
+                    print(f"Discord送信失敗: ステータス {response.status_code}")
+                    return False
+            return True
+
+        except Exception as e:
+            print(f"Discordメッセージ送信エラー: {str(e)}")
+            return False
