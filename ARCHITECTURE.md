@@ -6,7 +6,7 @@
 
 - `app/`
   - Python 3.12 の最小アプリ (`app/src/main.py`)
-  - 環境変数の構造化ログと Discord Webhook 通知のみ
+  - GCS → Cloudflare R2 への転送と Discord Webhook 通知のみ
   - `app/Dockerfile` で Cloud Run Job 用イメージをビルド
 - `infrastructure/`
   - Terraform による GCP 構成
@@ -22,9 +22,9 @@ flowchart TD
     Uploader["Uploader (GCS に音声をアップロード)"] --> Bucket["GCS Input Bucket"]
     Bucket -->|アップロード完了| Eventarc["Eventarc Trigger"]
     Eventarc --> Workflows["Cloud Workflows"]
-    Workflows -->|TRIGGER_FILE| RunJob["Cloud Run Job"]
+    Workflows -->|GCS_TRIGGER_OBJECT_NAME| RunJob["Cloud Run Job"]
     RunJob --> Logs["Cloud Logging"]
-    RunJob --> Discord["Discord Webhook (info のみ)"]
+    RunJob --> Discord["Discord Webhook (info/error)"]
     Secret["Secret Manager"] --> RunJob
     Artifact["Artifact Registry (Docker Image)"] --> RunJob
 ```
@@ -33,7 +33,7 @@ flowchart TD
 
 - `google_storage_bucket.input` を作成
 - バケット名: `${system}-audio-input-${environment}`（小文字化）
-- `input_retention_days` が設定されている場合、オブジェクトの削除ライフサイクルを設定
+- `gcs_retention_days` が設定されている場合、オブジェクトの削除ライフサイクルを設定
 
 ### 2.2 Eventarc トリガー
 
@@ -44,7 +44,7 @@ flowchart TD
 ### 2.3 Cloud Workflows
 
 - `google_workflows_workflow.main`
-- GCS イベントの `event.data.name` を `TRIGGER_FILE` として Cloud Run Job に渡す
+- GCS イベントの `event.data.name` を `GCS_TRIGGER_OBJECT_NAME` として Cloud Run Job に渡す
 - 末尾が `/` のオブジェクト名はスキップ（GCS の「フォルダ作成」プレースホルダーを想定）
 
 ### 2.4 Cloud Run Job
@@ -52,9 +52,12 @@ flowchart TD
 - `google_cloud_run_v2_job` を作成
 - 実行イメージは Artifact Registry に push した Docker イメージ
 - 主要な環境変数:
-  - `INPUT_BUCKET` = Input Bucket 名
+  - `GCS_BUCKET` = Input Bucket 名
+  - `GCS_TRIGGER_OBJECT_NAME` = Workflows から渡されるオブジェクト名
+  - `R2_BUCKET` = Cloudflare R2 のバケット名
+  - `CLOUDFLARE_ACCOUNT_ID` = Cloudflare アカウント ID
+  - `CLOUDFLARE_ACCESS_KEY_ID` / `CLOUDFLARE_SECRET_ACCESS_KEY` = Secret Manager から取得した値
   - `DISCORD_WEBHOOK_INFO_URL` / `DISCORD_WEBHOOK_ERROR_URL` = Secret Manager から取得した値
-  - `TRIGGER_FILE` = Workflows から渡されるオブジェクト名
 - 設定値 (root `job.tf`):
   - timeout: `3600s`
   - memory: `8Gi`
@@ -69,7 +72,8 @@ flowchart TD
 
 ### 2.6 Secret Manager
 
-- Discord Webhook の Secret 名を変数で受け取り、`data.google_secret_manager_secret_version` で読み込み
+- Discord Webhook と Cloudflare R2 の Access Key/Secret の Secret 名を変数で受け取り、
+  `data.google_secret_manager_secret_version` で読み込み
 - 取得した secret を Cloud Run Job の環境変数へ注入
 
 ### 2.7 IAM 付与 (主なもの)
@@ -89,11 +93,9 @@ flowchart TD
 Cloud Run Job で起動されるアプリは、テスト用に適当に作った簡易実装で、以下のみを実行します。
 
 1. `DISCORD_WEBHOOK_INFO_URL` がある場合、開始メッセージを送信
-2. 環境変数を JSON 形式でログ出力
-3. `TRIGGER_FILE` があれば JSON 形式でログ出力
+2. `GCS_TRIGGER_OBJECT_NAME` で指定された GCS オブジェクトを Cloudflare R2 にアップロード
+3. 失敗時は `DISCORD_WEBHOOK_ERROR_URL` があればエラーメッセージを送信して終了
 4. `DISCORD_WEBHOOK_INFO_URL` がある場合、完了メッセージを送信
-
-音声処理・RSS 更新・R2 連携等は **実装されていません**。
 
 ## 4. CI/CD
 
@@ -114,6 +116,5 @@ Cloud Run Job で起動されるアプリは、テスト用に適当に作った
 以下はまだコード上に存在しません。
 
 - 音声の解析・議事録/タイトル/概要の生成
-- Cloudflare R2 へのアップロード
 - RSS の更新
 - Discord への詳細な投稿

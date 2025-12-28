@@ -18,9 +18,13 @@ module "cloud_run_job" {
   max_instance_count = 1
 
   environment_variables = {
-    INPUT_BUCKET              = google_storage_bucket.input.name
-    DISCORD_WEBHOOK_INFO_URL  = data.google_secret_manager_secret_version.discord_webhook_info.secret_data
-    DISCORD_WEBHOOK_ERROR_URL = data.google_secret_manager_secret_version.discord_webhook_error.secret_data
+    GCS_BUCKET                   = google_storage_bucket.input.name
+    DISCORD_WEBHOOK_INFO_URL     = data.google_secret_manager_secret_version.discord_webhook_info.secret_data
+    DISCORD_WEBHOOK_ERROR_URL    = data.google_secret_manager_secret_version.discord_webhook_error.secret_data
+    R2_BUCKET                    = var.r2_bucket_name
+    CLOUDFLARE_ACCOUNT_ID        = var.cloudflare_account_id
+    CLOUDFLARE_ACCESS_KEY_ID     = data.google_secret_manager_secret_version.cloudflare_access_key_id.secret_data
+    CLOUDFLARE_SECRET_ACCESS_KEY = data.google_secret_manager_secret_version.cloudflare_secret_access_key.secret_data
   }
 
   depends_on = [google_project_service.required]

@@ -1,10 +1,10 @@
 # podcast-automator
 
 このリポジトリは、GCP 上で **GCS への音声アップロード → Eventarc → Workflows → Cloud Run Jobs** の起動までを Terraform で構成するためのコードと、
-Cloud Run Jobs で実行される **テスト用の簡易 Python アプリ**（環境変数のログ出力と Discord 通知のみ）を含みます。
+Cloud Run Jobs で実行される **テスト用の簡易 Python アプリ**（GCS → Cloudflare R2 転送と Discord 通知のみ）を含みます。
 
 **重要**: 現時点の `app/src/main.py` はテスト用に適当に作ったものです。
-音声処理や RSS 更新などは実装しておらず、環境変数のログ出力と Discord Webhook 通知を行うだけです。
+音声処理や RSS 更新などは実装しておらず、GCS から R2 へ転送するだけです。
 実装済みの構成は `ARCHITECTURE.md` を参照してください。
 
 ## 構成
@@ -12,7 +12,7 @@ Cloud Run Jobs で実行される **テスト用の簡易 Python アプリ**（�
 ```
 .
 ├── app/                         # Python アプリ (Cloud Run Job 用)
-│   ├── src/main.py              # 環境変数ログ + Discord 通知
+│   ├── src/main.py              # GCS → R2 転送 + Discord 通知
 │   ├── tests/                   # pytest
 │   ├── pyproject.toml           # Python 3.12 / ruff / pytest 設定
 │   └── Dockerfile               # Cloud Run Job 用イメージ
@@ -29,7 +29,8 @@ Cloud Run Jobs で実行される **テスト用の簡易 Python アプリ**（�
 `app/src/main.py` は次の動作のみを行います。
 
 - `DISCORD_WEBHOOK_INFO_URL` があれば、開始・終了メッセージを送信
-- 環境変数を JSON 1 行ずつ構造化ログとして出力
+- `GCS_TRIGGER_OBJECT_NAME` で指定された GCS オブジェクトを Cloudflare R2 に転送
+- 失敗時は `DISCORD_WEBHOOK_ERROR_URL` があればエラーメッセージを送信
 
 ## ローカル開発 (app)
 
@@ -51,8 +52,9 @@ make docker-build
 ## インフラ (Terraform)
 
 Terraform は Docker コンテナで実行する前提です。`Makefile` が用意されています。
-`.env.sample` に `GOOGLE_APPLICATION_CREDENTIALS` の例があります。
+`.env.sample` に `GOOGLE_APPLICATION_CREDENTIALS` と Cloudflare 認証情報の例があります。
 ローカルからデプロイする場合は、サービスアカウントの JSON を配置し、そのパスを `.env` の `GOOGLE_APPLICATION_CREDENTIALS` に設定してください。
+あわせて Cloudflare の認証情報（`CLOUDFLARE_ACCESS_KEY_ID` / `CLOUDFLARE_SECRET_ACCESS_KEY` / `CLOUDFLARE_API_TOKEN`）も `.env` に設定してください。
 
 ### デプロイ手段
 
@@ -60,7 +62,8 @@ Terraform は Docker コンテナで実行する前提です。`Makefile` が用
   - `develop` / `main` への push で自動実行
   - `workflow_dispatch` でブランチ指定デプロイ
 - ローカルから `make terraform-deploy-{dev,prod}` でデプロイ
-  - ローカル実行時は、サービスアカウントの JSON を配置し、`.env` の `GOOGLE_APPLICATION_CREDENTIALS` にパスを設定してください
+  - ローカル実行時は、サービスアカウントの JSON を配置し、そのパスを `.env` の `GOOGLE_APPLICATION_CREDENTIALS` に設定してください
+  - あわせて Cloudflare の認証情報も `.env` に設定してください
 
 ```bash
 # 例: dev 環境のデプロイ
@@ -109,9 +112,14 @@ make terraform-deploy-dev DEPLOY_COMMAND_EXTENSION="-auto-approve"
 `app/.env.sample` に記載されています。
 
 ```
-INPUT_BUCKET=your-input-bucket-name
+GCS_BUCKET=your-input-bucket-name
+GCS_TRIGGER_OBJECT_NAME=path/to/input/file.mp3
 DISCORD_WEBHOOK_INFO_URL=https://discord.example/webhook/info
 DISCORD_WEBHOOK_ERROR_URL=https://discord.example/webhook/error
+R2_BUCKET=your-r2-bucket-name
+CLOUDFLARE_ACCOUNT_ID=your-cloudflare-account-id
+CLOUDFLARE_ACCESS_KEY_ID=your-cloudflare-access-key-id
+CLOUDFLARE_SECRET_ACCESS_KEY=your-cloudflare-secret-access-key
 ```
 
 ## Dev Container について
