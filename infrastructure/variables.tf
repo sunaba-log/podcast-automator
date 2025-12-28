@@ -13,6 +13,12 @@ variable "system" {
   description = "System name for default labels."
 }
 
+variable "org" {
+  type        = string
+  description = "Organization name for default labels."
+  default     = "sunabalog"
+}
+
 variable "project_id" {
   type        = string
   description = "GCP project ID."
