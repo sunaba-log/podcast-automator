@@ -71,3 +71,15 @@ variable "r2_subdomain" {
   type        = string
   description = "Subdomain part for the custom domain (e.g., dev.podcast-test)."
 }
+
+variable "cloudflare_access_key_id" {
+  type        = string
+  description = "Cloudflare R2 S3-compatible access key ID."
+  sensitive   = true
+}
+
+variable "cloudflare_secret_access_key" {
+  type        = string
+  description = "Cloudflare R2 S3-compatible secret access key."
+  sensitive   = true
+}
