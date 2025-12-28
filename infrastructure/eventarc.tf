@@ -21,6 +21,7 @@ resource "google_eventarc_trigger" "gcs_finalize" {
     google_project_service.required,
     module.cloud_run_job,
     google_workflows_workflow.main,
+    google_project_service_identity.eventarc,
     google_project_iam_member.eventarc_service_agent,
   ]
 }

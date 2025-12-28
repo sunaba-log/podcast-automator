@@ -13,6 +13,12 @@ variable "system" {
   description = "System name for default labels."
 }
 
+variable "org" {
+  type        = string
+  description = "Organization name for default labels."
+  default     = "sunabalog"
+}
+
 variable "project_id" {
   type        = string
   description = "GCP project ID."
@@ -24,18 +30,18 @@ variable "region" {
   default     = "asia-northeast1"
 }
 
-variable "input_retention_days" {
+variable "gcs_retention_days" {
   type        = number
   description = "Days to retain input audio objects before deletion. Omit or set null to disable lifecycle deletion."
   default     = null
 
   validation {
-    condition     = var.input_retention_days == null || var.input_retention_days > 0
-    error_message = "input_retention_days must be null (disabled) or a positive number."
+    condition     = var.gcs_retention_days == null || var.gcs_retention_days > 0
+    error_message = "gcs_retention_days must be null (disabled) or a positive number."
   }
 }
 
-variable "input_bucket_force_destroy" {
+variable "gcs_force_destroy" {
   type        = bool
   description = "Allow Terraform to delete the input bucket even if it contains objects."
   default     = false
@@ -50,4 +56,42 @@ variable "discord_webhook_info_secret_name" {
 variable "discord_webhook_error_secret_name" {
   type        = string
   description = "Secret Manager secret name for Discord error webhook URL."
+}
+
+variable "cloudflare_access_key_id_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for Cloudflare R2 access key id."
+  default     = "cloudflare-access-key-id"
+}
+
+variable "cloudflare_secret_access_key_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for Cloudflare R2 secret access key."
+  default     = "cloudflare-secret-access-key"
+}
+
+variable "cloudflare_account_id" {
+  type        = string
+  description = "Cloudflare account ID that owns the R2 bucket."
+}
+
+variable "cloudflare_zone_name" {
+  type        = string
+  description = "Cloudflare zone name (e.g., example.com) for the custom domain."
+}
+
+variable "r2_bucket_name" {
+  type        = string
+  description = "Cloudflare R2 bucket name for podcast assets."
+}
+
+variable "r2_subdomain" {
+  type        = string
+  description = "Subdomain part for the custom domain (e.g., dev.podcast-test)."
+}
+
+variable "r2_retention_days" {
+  type        = number
+  description = "Days to retain R2 objects before expiration (dev only)."
+  default     = 3
 }

@@ -25,7 +25,7 @@ resource "google_workflows_workflow" "main" {
               overrides:
                 containerOverrides:
                   - env:
-                      - name: "TRIGGER_FILE"
+                      - name: "GCS_TRIGGER_OBJECT_NAME"
                         value: $${event.data.name}
           result: jobExecution
       - done:
