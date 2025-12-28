@@ -4,7 +4,7 @@ Upload a local audio file to R2 using R2Client.upload_file
 Usage:
   PROJECT_ID=... SECRET_NAME=... ENDPOINT_URL=... BUCKET_NAME=... \
   python upload_audio.py local/path/to/file.mp3 remote/key/in/bucket.mp3
-  python example_storage_upload_audio.py ../data/short_dialogue.m4a test/ep/episode1.m4a
+  python example_storage_upload_audio.py ./data/short_dialogue.m4a test/ep/episode1.m4a
 """
 
 import mimetypes
@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from services.storage import R2Client
+from services import R2Client
 
 
 def main():
