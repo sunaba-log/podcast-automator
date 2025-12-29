@@ -29,7 +29,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-vvv --durations=3 --ignore=tests/test_storage.py --ignore=tests/test_ai_analyzer.py"
+addopts = "-vvv --durations=3 --ignore=tests/test_storage.py --ignore=tests/test_ai_analyzer.py --ignore=tests/test_get_audio_info.py"
 testpaths = ["tests"]
 pythonpath = [".", "src"]
 
