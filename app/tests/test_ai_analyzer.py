@@ -1,21 +1,17 @@
-import os
+import os  # noqa: I001
 from unittest.mock import MagicMock, patch
 
 import pytest
-from services.ai_analyzer import (
-    AudioAnalyzer,
-    generate_transcript_with_gemini,
-    summarize_transcript_with_gemini,
-)
+from services.ai_analyzer import AudioAnalyzer, generate_transcript_with_gemini, summarize_transcript_with_gemini
 
 
 class TestAudioAnalyzerInit:
-    """AudioAnalyzerの初期化テスト"""
+    """AudioAnalyzerの初期化テスト."""
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("services.ai_analyzer.genai.Client")
     def test_init_with_env_vars(self, mock_client):
-        """環境変数からプロジェクトIDとリージョンを取得"""
+        """環境変数からプロジェクトIDとリージョンを取得."""
         with patch.dict(
             os.environ,
             {
@@ -27,24 +23,20 @@ class TestAudioAnalyzerInit:
 
             assert analyzer.project_id == "test-project"
             assert analyzer.location == "asia-northeast1"
-            mock_client.assert_called_once_with(
-                vertexai=True, project="test-project", location="asia-northeast1"
-            )
+            mock_client.assert_called_once_with(vertexai=True, project="test-project", location="asia-northeast1")
 
     @patch("services.ai_analyzer.genai.Client")
     def test_init_with_explicit_params(self, mock_client):
-        """明示的なパラメータで初期化"""
+        """明示的なパラメータで初期化."""
         analyzer = AudioAnalyzer(project_id="my-project", location="us-west1")
 
         assert analyzer.project_id == "my-project"
         assert analyzer.location == "us-west1"
-        mock_client.assert_called_once_with(
-            vertexai=True, project="my-project", location="us-west1"
-        )
+        mock_client.assert_called_once_with(vertexai=True, project="my-project", location="us-west1")
 
     @patch.dict(os.environ, {}, clear=True)
     def test_init_without_project_id_raises_error(self):
-        """プロジェクトIDがない場合はエラーを発生"""
+        """プロジェクトIDがない場合はエラーを発生."""
         with pytest.raises(
             ValueError,
             match="project_id must be provided or set in GOOGLE_CLOUD_PROJECT env var",
@@ -57,20 +49,20 @@ class TestAudioAnalyzerInit:
         clear=True,
     )
     @patch("services.ai_analyzer.genai.Client")
-    def test_init_default_location(self, mock_client):
-        """デフォルトロケーションを使用"""
+    def test_init_default_location(self, mock_client):  # noqa: ARG002
+        """デフォルトロケーションを使用."""
         analyzer = AudioAnalyzer()
 
         assert analyzer.location == "us-central1"
 
 
 class TestGenerateTranscript:
-    """generate_transcript メソッドのテスト"""
+    """generate_transcript メソッドのテスト."""
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("services.ai_analyzer.genai.Client")
     def test_generate_transcript_success(self, mock_client_class):
-        """文字起こしの生成成功"""
+        """文字起こしの生成成功."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -91,7 +83,7 @@ class TestGenerateTranscript:
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("services.ai_analyzer.genai.Client")
     def test_generate_transcript_custom_model(self, mock_client_class):
-        """カスタムモデルIDで文字起こしを生成"""
+        """カスタムモデルIDで文字起こしを生成."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -107,12 +99,12 @@ class TestGenerateTranscript:
 
 
 class TestSummarizeTranscript:
-    """summarize_transcript メソッドのテスト"""
+    """summarize_transcript メソッドのテスト."""
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("services.ai_analyzer.genai.Client")
     def test_summarize_transcript_with_custom_prompt(self, mock_client_class):
-        """カスタムプロンプトで要約を生成"""
+        """カスタムプロンプトで要約を生成."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -134,7 +126,7 @@ class TestSummarizeTranscript:
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("services.ai_analyzer.genai.Client")
     def test_summarize_transcript_default_prompt(self, mock_client_class):
-        """デフォルトプロンプトで要約を生成"""
+        """デフォルトプロンプトで要約を生成."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -155,7 +147,7 @@ class TestSummarizeTranscript:
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("services.ai_analyzer.genai.Client")
     def test_summarize_transcript_config(self, mock_client_class):
-        """GenerateContentConfig が正しく設定される"""
+        """GenerateContentConfig が正しく設定される."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -174,7 +166,7 @@ class TestSummarizeTranscript:
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("services.ai_analyzer.genai.Client")
     def test_summarize_transcript_custom_model(self, mock_client_class):
-        """カスタムモデルIDで要約を生成"""
+        """カスタムモデルIDで要約を生成."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -190,12 +182,12 @@ class TestSummarizeTranscript:
 
 
 class TestBackwardCompatibility:
-    """後方互換性関数のテスト"""
+    """後方互換性関数のテスト."""
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("services.ai_analyzer.genai.Client")
     def test_generate_transcript_with_gemini_function(self, mock_client_class):
-        """レガシー関数 generate_transcript_with_gemini が動作"""
+        """レガシー関数 generate_transcript_with_gemini が動作."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -209,7 +201,7 @@ class TestBackwardCompatibility:
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("services.ai_analyzer.genai.Client")
     def test_summarize_transcript_with_gemini_function(self, mock_client_class):
-        """レガシー関数 summarize_transcript_with_gemini が動作"""
+        """レガシー関数 summarize_transcript_with_gemini が動作."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -218,5 +210,7 @@ class TestBackwardCompatibility:
         mock_client.models.generate_content.return_value = mock_response
 
         result = summarize_transcript_with_gemini("transcript", "custom prompt")
+        assert result == "Summary"
+        assert result == "Summary"
         assert result == "Summary"
         assert result == "Summary"

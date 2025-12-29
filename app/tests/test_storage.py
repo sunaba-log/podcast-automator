@@ -15,7 +15,14 @@ def _load_storage_module():
     # package import issues with the directory name.
     base = Path(__file__).resolve().parents[1]
     storage_path = base / "services" / "storage.py"
+
     spec = importlib.util.spec_from_file_location("storage", storage_path)
+
+    # 【修正箇所】spec または spec.loader が None の場合のガードを追加
+    if spec is None or spec.loader is None:
+        msg = f"Could not load module from {storage_path}"
+        raise ImportError(msg)
+
     storage = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(storage)
     return storage
