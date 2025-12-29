@@ -1,7 +1,7 @@
-import importlib.util
 import io
-from pathlib import Path
 from unittest.mock import MagicMock
+
+from services import R2Client
 
 PROJECT_ID = "taka-test-481815"  # ※それそれのproject_idを確認してください。
 SECRET_ID = "sunabalog-r2"  # ※本記事では2で作成した'test-secret')
@@ -10,41 +10,14 @@ ENDPOINT_URL = "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.co
 BUCKET_NAME = "podcast"
 
 
-def _load_storage_module():
-    # Load the storage module directly from the services directory to avoid
-    # package import issues with the directory name.
-    base = Path(__file__).resolve().parents[1]
-    storage_path = base / "services" / "storage.py"
-
-    spec = importlib.util.spec_from_file_location("storage", storage_path)
-
-    # 【修正箇所】spec または spec.loader が None の場合のガードを追加
-    if spec is None or spec.loader is None:
-        msg = f"Could not load module from {storage_path}"
-        raise ImportError(msg)
-
-    storage = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(storage)
-    return storage
-
-
 def test_download_file(monkeypatch):
-    storage = _load_storage_module()
-
     class FakeClient:
         def __init__(self):
             self.get_object = MagicMock(return_value={"Body": io.BytesIO(b"file-bytes")})
 
     fake = FakeClient()
 
-    class FakeBotoModule:
-        @staticmethod
-        def client(*args, **kwargs):
-            return fake
-
-    monkeypatch.setattr(storage, "boto3", FakeBotoModule)
-
-    r2 = storage.R2Client(PROJECT_ID, SECRET_ID, ENDPOINT_URL, "bucket")
+    r2 = R2Client(PROJECT_ID, SECRET_ID, ENDPOINT_URL, "bucket")
     data = r2.download_file("remote/key")
 
     assert data == b"file-bytes"
@@ -52,22 +25,13 @@ def test_download_file(monkeypatch):
 
 
 def test_upload_file(monkeypatch):
-    storage = _load_storage_module()
-
     class FakeClient:
         def __init__(self):
             self.upload_fileobj = MagicMock()
 
     fake = FakeClient()
 
-    class FakeBotoModule:
-        @staticmethod
-        def client(*args, **kwargs):
-            return fake
-
-    monkeypatch.setattr(storage, "boto3", FakeBotoModule)
-
-    r2 = storage.R2Client(PROJECT_ID, SECRET_ID, ENDPOINT_URL, "bucket")
+    r2 = R2Client(PROJECT_ID, SECRET_ID, ENDPOINT_URL, "bucket")
     content = b"hello"
     url = r2.upload_file(content, "remote/key", content_type="text/plain", public=True)
 
@@ -81,7 +45,8 @@ def test_upload_file(monkeypatch):
 
 
 def test_generate_public_url():
-    storage = _load_storage_module()
-    r2 = storage.R2Client(PROJECT_ID, SECRET_ID, "https://endpoint", "bucket")
+    r2 = R2Client(PROJECT_ID, SECRET_ID, "https://endpoint", "bucket")
+    assert r2.generate_public_url("key") == "https://endpoint/bucket/key"
+    assert r2.generate_public_url("key", custom_domain="https://cdn.example.com") == "https://cdn.example.com/key"
     assert r2.generate_public_url("key") == "https://endpoint/bucket/key"
     assert r2.generate_public_url("key", custom_domain="https://cdn.example.com") == "https://cdn.example.com/key"

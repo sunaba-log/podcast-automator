@@ -2,7 +2,7 @@ import os  # noqa: I001
 from unittest.mock import MagicMock, patch
 
 import pytest
-from services.ai_analyzer import AudioAnalyzer, generate_transcript_with_gemini, summarize_transcript_with_gemini
+from services import AudioAnalyzer
 
 
 class TestAudioAnalyzerInit:
@@ -179,38 +179,3 @@ class TestSummarizeTranscript:
 
         call_args = mock_client.models.generate_content.call_args
         assert call_args.kwargs["model"] == "custom-model"
-
-
-class TestBackwardCompatibility:
-    """後方互換性関数のテスト."""
-
-    @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
-    def test_generate_transcript_with_gemini_function(self, mock_client_class):
-        """レガシー関数 generate_transcript_with_gemini が動作."""
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-
-        mock_response = MagicMock()
-        mock_response.text = "Transcript"
-        mock_client.models.generate_content.return_value = mock_response
-
-        result = generate_transcript_with_gemini("gs://bucket/audio.wav")
-        assert result == "Transcript"
-
-    @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
-    def test_summarize_transcript_with_gemini_function(self, mock_client_class):
-        """レガシー関数 summarize_transcript_with_gemini が動作."""
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-
-        mock_response = MagicMock()
-        mock_response.text = "Summary"
-        mock_client.models.generate_content.return_value = mock_response
-
-        result = summarize_transcript_with_gemini("transcript", "custom prompt")
-        assert result == "Summary"
-        assert result == "Summary"
-        assert result == "Summary"
-        assert result == "Summary"
