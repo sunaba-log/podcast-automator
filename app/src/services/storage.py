@@ -43,7 +43,7 @@ class R2Client:
         else:
             self.access_key, self.secret_key = self._get_credentials(secret_name)
 
-        # S3 クライアントを初期化（R2は S3 互換API）  # noqa: RUF003
+        # S3 クライアントを初期化(R2は S3 互換API)  # noqa: RUF003
         self.client = boto3.client(
             "s3",
             endpoint_url=endpoint_url,
@@ -80,6 +80,7 @@ class R2Client:
         file_content: bytes,
         remote_key: str,
         content_type: str | None = None,
+        *,
         public: bool = False,
     ) -> str:
         """ファイルを R2 にアップロード."""
@@ -199,6 +200,7 @@ def transfer_gcs_to_r2(
     gcs_object_name: str,
     r2_remote_key: str,
     content_type: str | None = None,
+    *,
     public: bool = True,
     custom_domain: str | None = None,
 ) -> tuple:
@@ -218,7 +220,7 @@ def transfer_gcs_to_r2(
         R2 にアップロードされたファイルの公開 URL.
     """
     path = Path(gcs_object_name)
-    format = path.suffix.lstrip(".").lower()
+    file_format = path.suffix.lstrip(".").lower()
 
     try:
         # GCS からファイルをダウンロード
@@ -230,7 +232,7 @@ def transfer_gcs_to_r2(
 
             # オーディオ情報を取得
             try:
-                file_size_bytes, duration_str = get_audio_info(file_buffer=file_buffer, audio_format=format)
+                file_size_bytes, duration_str = get_audio_info(file_buffer=file_buffer, audio_format=file_format)
             except Exception as e:  # noqa: BLE001
                 logger.warning("Failed to get audio info")
                 file_size_bytes, duration_str = -1, "00:00:00"
@@ -252,7 +254,7 @@ def transfer_gcs_to_r2(
 
 def get_audio_info(file_buffer: io.BytesIO, audio_format: str) -> list:
     """音声ファイルの情報を取得する."""
-    # ファイルのサイズ（バイト数）を取得
+    # ファイルのサイズ(バイト数)を取得
     file_size_bytes = file_buffer.getbuffer().nbytes
     logger.info("File size: %d bytes", file_size_bytes)
 
@@ -263,7 +265,7 @@ def get_audio_info(file_buffer: io.BytesIO, audio_format: str) -> list:
     logger.info("frame rate: %s", sounds.frame_rate)
     logger.info("duration: %s s", sounds.duration_seconds)
 
-    # 再生時間（例: "01:23:45"）
+    # 再生時間(例: "01:23:45")
     duration_seconds = int(sounds.duration_seconds)
     hours = duration_seconds // 3600
     minutes = (duration_seconds % 3600) // 60

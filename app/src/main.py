@@ -26,8 +26,6 @@ from services import (
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from botocore.client import BaseClient
-
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
@@ -42,12 +40,10 @@ GCS_TRIGGER_OBJECT_NAME = os.environ.get("GCS_TRIGGER_OBJECT_NAME", "short_dialo
 R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL", "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com")
 R2_BUCKET = os.environ.get("R2_BUCKET", "podcast")
 SUBDIRECTORY = os.environ.get("SUBDIRECTORY", "test")  # R2内の保存先フォルダ
-AI_MODEL_ID = os.environ.get(
-    "AI_MODEL_ID", "gemini-2.5-flash"
-)  # GeminiモデルID（未指定時はデフォルト）  # noqa: RUF003
+AI_MODEL_ID = os.environ.get("AI_MODEL_ID", "gemini-2.5-flash")  # GeminiモデルID(未指定時はデフォルト)  # noqa: RUF003
 R2_CUSTOM_DOMAIN = os.environ.get(
     "R2_CUSTOM_DOMAIN", "podcast.sunabalog.com"
-)  # R2のカスタムドメイン（未指定時はエンドポイントURL）  # noqa: RUF003
+)  # R2のカスタムドメイン(未指定時はエンドポイントURL)  # noqa: RUF003
 
 # 環境変数の確認
 logger.info("## Environment Variables ##")
@@ -113,7 +109,7 @@ def process_podcast_workflow() -> None:
     """GCSへのファイルアップロードをトリガーに実行されるメイン関数."""
     logger.info("GCS Bucket: %s, File: %s", GCS_BUCKET, GCS_TRIGGER_OBJECT_NAME)
     gcs_path = Path(GCS_TRIGGER_OBJECT_NAME)
-    # Mime Type 判定（タイトル等のメタデータ取得用）  # noqa: RUF003
+    # Mime Type 判定(タイトル等のメタデータ取得用)  # noqa: RUF003
     mime_type = mimetypes.guess_type(GCS_TRIGGER_OBJECT_NAME)[0] or "audio/x-m4a"
     logger.info("Detected mime type: %s", mime_type)
     # secret manager から R2 と Discord の認証情報を取得
@@ -164,7 +160,7 @@ def process_podcast_workflow() -> None:
 
         # --- Phase 2: Upload to R2 ---
         logger.info("\n## Step2: Uploading to Cloudflare R2... ##")
-        # ストリームでGCSから取得し、R2へアップロード（ローカルディスク節約）
+        # ストリームでGCSから取得し、R2へアップロード(ローカルディスク節約)
         public_url, file_size_bytes, duration_str = transfer_gcs_to_r2(
             gcs_client=gcs_client,
             r2_client=r2_client,

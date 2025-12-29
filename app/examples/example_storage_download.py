@@ -14,13 +14,9 @@ from services import R2Client
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Download a file from Cloudflare R2 via R2Client"
-    )
-    parser.add_argument(
-        "remote_key", help="R2 のオブジェクトキー（例: folder/file.mp3）"
-    )
-    parser.add_argument("--out", "-o", help="保存先ローカルパス（省略時は同名で保存）")
+    parser = argparse.ArgumentParser(description="Download a file from Cloudflare R2 via R2Client")
+    parser.add_argument("remote_key", help="R2 のオブジェクトキー(例: folder/file.mp3)")
+    parser.add_argument("--out", "-o", help="保存先ローカルパス(省略時は同名で保存)")
     args = parser.parse_args()
 
     project_id = os.environ.get("PROJECT_ID", "taka-test-481815")
@@ -32,9 +28,7 @@ def main():
     bucket_name = os.environ.get("BUCKET_NAME", "podcast")
 
     if not all([project_id, secret_name, endpoint_url, bucket_name]):
-        raise SystemExit(
-            "環境変数 PROJECT_ID, SECRET_NAME, ENDPOINT_URL, BUCKET_NAME を設定してください。"
-        )
+        raise SystemExit("環境変数 PROJECT_ID, SECRET_NAME, ENDPOINT_URL, BUCKET_NAME を設定してください。")
 
     client = R2Client(
         project_id=project_id,

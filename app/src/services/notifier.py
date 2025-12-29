@@ -14,7 +14,7 @@ def split_message(message: str, max_length: int = DISCORD_MESSAGE_LIMIT) -> list
 
     Args:
         message: 送信するメッセージ
-        max_length: 最大文字数（デフォルト: 2000）
+        max_length: 最大文字数(デフォルト: 2000)
 
     Returns:
         分割されたメッセージのリスト

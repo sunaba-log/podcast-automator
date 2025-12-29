@@ -13,7 +13,7 @@ PODCAST_LANGUAGE = "ja"
 PODCAST_CATEGORY = "Technology"
 PODCAST_COVER_URL = "https://d3t3ozftmdmh3i.cloudfront.net/staging/podcast_uploaded_nologo/44930391/44930391-1766196120654-b1b62f088781f.jpg"
 PODCAST_OWNER_NAME = "Sunaba Log"
-PODCAST_OWNER_EMAIL = "noreply@sunabalog.com"  # メールアドレス（required）
+PODCAST_OWNER_EMAIL = "noreply@sunabalog.com"  # メールアドレス(required)
 PODCAST_AUTHOR = "Sunaba Log"
 PODCAST_COPYRIGHT = "Sunaba Log"
 
@@ -33,7 +33,7 @@ rss = generator.generate_podcast_rss(
     copyright_text=PODCAST_COPYRIGHT,
 )
 
-# 2. エピソード追加（複数エピソード）
+# 2. エピソード追加(複数エピソード)
 # エピソード #3
 generator.add_episode(
     {
@@ -79,14 +79,14 @@ generator.add_episode(
     }
 )
 
-# 3. タイトル更新（オプション）
+# 3. タイトル更新(オプション)
 # generator.update_title("Updated Podcast Title")
 
 # 4. XML取得
 xml = generator.get_rss_xml()
 print(generator.get_total_episodes(), "エピソード数を生成済み")
 
-# 5. 結果の表示（オプション）
+# 5. 結果の表示(オプション)
 print(xml)
 
 # または、ファイルに保存
@@ -103,7 +103,7 @@ print("パート2: RSS フィードの更新テスト")
 print("=" * 80 + "\n")
 
 # 1. 既存のRSSフィードを読み込む
-with open("./output/output_rss_feed.xml", "r", encoding="utf-8") as f:
+with open("./output/output_rss_feed.xml", encoding="utf-8") as f:
     existing_rss = f.read()
 
 # 2. 読み込んだRSSでジェネレータを初期化

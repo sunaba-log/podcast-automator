@@ -54,7 +54,7 @@ class PodcastRssManager:
                 msg = f"Failed to parse RSS: {feed.bozo_exception}"
                 raise ValueError(msg)
 
-            # チャンネル（feed）情報を抽出  # noqa: RUF003
+            # チャンネル(feed)情報を抽出  # noqa: RUF003
             feed_info = feed.feed
             self.fg.title(feed_info.get("title", "sunabalog"))
             self.fg.description(feed_info.get("summary", feed_info.get("subtitle", "30 Days to Build (or Not)")))
@@ -102,7 +102,7 @@ class PodcastRssManager:
             # iTunes タイプ
             self.fg.podcast.itunes_type("episodic")
 
-            # エピソード（entries）を処理
+            # エピソード(entries)を処理
             for entry in feed.entries:
                 item_title = entry.get("title", "Untitled")
                 item_description = entry.get("summary", entry.get("description", ""))
@@ -115,7 +115,7 @@ class PodcastRssManager:
                 if "published_parsed" in entry:
                     item_pubdate = datetime.datetime(*entry["published_parsed"][:6], tzinfo=pytz.UTC)
 
-                # エンクロージャ（音声ファイル）を抽出  # noqa: RUF003
+                # エンクロージャ(音声ファイル)を抽出  # noqa: RUF003
                 audio_url = ""
                 file_size = "0"
                 mime_type = "audio/mpeg"
@@ -159,7 +159,8 @@ class PodcastRssManager:
                     self.add_episode(episode_data)
 
         except Exception as e:
-            raise ValueError(f"Failed to parse RSS XML: {e}")
+            msg = f"Failed to parse RSS XML: {e}"
+            raise ValueError(msg) from e
 
     def _ensure_fg_loaded(self) -> None:
         """FeedGeneratorが読み込まれていることを確認."""
@@ -240,16 +241,16 @@ class PodcastRssManager:
 
         Args:
             episode_data: エピソード情報を含む辞書. 以下のキーをサポート:
-                - title (str): エピソードタイトル（必須）
-                - description (str): エピソード説明（必須）
+                - title (str): エピソードタイトル(必須)
+                - description (str): エピソード説明(必須)
                 - link (str): エピソードのリンク
-                - audio_url (str): 音声ファイルのURL（必須）
-                - duration (str): 再生時間（例: "01:23:45"）
+                - audio_url (str): 音声ファイルのURL(必須)
+                - duration (str): 再生時間(例: "01:23:45")
                 - pub_date (datetime): 公開日時
-                - guid (str): ユニークなID（デフォルト: UUID4）
+                - guid (str): ユニークなID(デフォルト: UUID4)
                 - creator (str): エピソード作成者
-                - file_size (int): 音声ファイルサイズ（バイト）
-                - mime_type (str): MIME タイプ（デフォルト: audio/mpeg）
+                - file_size (int): 音声ファイルサイズ(バイト)
+                - mime_type (str): MIME タイプ(デフォルト: audio/mpeg)
         """
         self._ensure_fg_loaded()
 
@@ -284,15 +285,15 @@ class PodcastRssManager:
             length=str(file_size),
         )
 
-        # 公開日時を設定（デフォルトは現在時刻）
+        # 公開日時を設定(デフォルトは現在時刻)
         pub_date = episode_data.get("pub_date", datetime.datetime.now(pytz.UTC))
         fe.pubDate(pub_date)
 
-        # 再生時間を設定（iTunes拡張機能）
+        # 再生時間を設定(iTunes拡張機能)
         if "duration" in episode_data:
             fe.podcast.itunes_duration(episode_data["duration"])
 
-        # エピソードタイプを設定（iTunes拡張機能）
+        # エピソードタイプを設定(iTunes拡張機能)
         episode_type = episode_data.get("episode_type", "full")
         fe.podcast.itunes_episode_type(episode_type)
 
@@ -348,7 +349,7 @@ class PodcastRssManager:
                 self.fg.language(old_language)
                 self.fg.link(href=channel_link, rel="alternate")
 
-                # すべてのエントリを再度追加（更新対象以外）
+                # すべてのエントリを再度追加(更新対象以外)
                 self.total_episodes = 0
                 for j, entry_item in enumerate(feed.entries):
                     episode_data = {
@@ -501,16 +502,16 @@ class PodcastRssManager:
 
     def generate_podcast_rss(
         self,
-        title,
-        description,
-        language,
-        category,
-        cover_url,
-        owner_name,
-        owner_email=None,
-        author=None,
-        copyright_text=None,
-        podcast_type="episodic",
+        title: str,
+        description: str,
+        language: str,
+        category: str,
+        cover_url: str,
+        owner_name: str,
+        owner_email: str = "",
+        author: str = "",
+        copyright_text: str = "",
+        podcast_type: str = "episodic",
     ) -> str:
         """新しいポッドキャストRSSフィードを生成.
 
@@ -524,7 +525,7 @@ class PodcastRssManager:
             owner_email: オーナーメール (オプション)
             author: ポッドキャスト著作者 (オプション)
             copyright_text: 著作権表記 (オプション)
-            podcast_type: ポッドキャストタイプ（デフォルト: "episodic"）
+            podcast_type: ポッドキャストタイプ(デフォルト: "episodic")
 
         Returns:
             RSS XMLを文字列で返す.
@@ -532,36 +533,36 @@ class PodcastRssManager:
         # 1. FeedGeneratorの初期化
         self.fg = FeedGenerator()
 
-        # Podcast拡張機能（iTunesタグなど）を読み込む  # noqa: RUF003
+        # Podcast拡張機能(iTunesタグなど)を読み込む  # noqa: RUF003
         self.fg.load_extension("podcast")
 
-        # --- Channel（番組全体）の設定 ---  # noqa: RUF003
+        # --- Channel(番組全体)の設定 ---  # noqa: RUF003
         self.fg.title(title)  # 番組タイトル
         self.fg.link(href="https://sunabalog.com", rel="alternate")  # 番組サイト
         self.fg.description(description)  # 番組説明
         self.fg.language(language)
 
         # 著作者と著作権を設定
-        if author:
+        if author != "":
             self.fg.author(name=author)
         if copyright_text:
             self.fg.copyright(copyright_text)
 
         # ポッドキャスト固有設定
-        self.fg.podcast.itunes_category(category)  # カテゴリ（Appleの規定リスト参照）
+        self.fg.podcast.itunes_category(category)  # カテゴリ(Appleの規定リスト参照)
         self.fg.podcast.itunes_explicit("no")  # explicit指定 (yes/no)
         self.fg.podcast.itunes_image(cover_url)  # 必須: 1400~3000px
         self.fg.podcast.itunes_type(podcast_type)  # ポッドキャストタイプ
 
         # オーナー情報を設定
-        if owner_email:
+        if owner_email != "":
             self.fg.podcast.itunes_owner(name=owner_name, email=owner_email)
         else:
             # emailがない場合はダミーメールアドレスを使用
             self.fg.podcast.itunes_owner(name=owner_name, email="noreply@example.com")
 
         # --- RSS生成 ---
-        # 文字列として取得（Cloudflare R2やS3にアップロードする場合など）  # noqa: RUF003
+        # 文字列として取得(Cloudflare R2やS3にアップロードする場合など)  # noqa: RUF003
         rss_str = self.fg.rss_str(pretty=True)
         self.rss_xml = rss_str.decode("utf-8")
         return self.rss_xml
