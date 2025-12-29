@@ -17,17 +17,13 @@ from services import (
 
 PROJECT_ID = os.environ.get("PROJECT_ID", "taka-test-481815")
 SECRET_NAME = os.environ.get("SECRET_NAME", "sunabalog-r2")
-R2_ENDPOINT_URL = os.environ.get(
-    "R2_ENDPOINT_URL", "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com"
-)
+R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL", "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com")
 BUCKET_NAME = os.environ.get("BUCKET_NAME", "podcast")
 SUBDIRECTORY = os.environ.get("SUBDIRECTORY", "test")  # R2内の保存先フォルダ
 AUDIO_FILE_URL = os.environ.get(
     "AUDIO_FILE_URL", "gs://sample-audio-for-sunabalog/short_dialogue.m4a"
 )  # GCSにアップロードされたmp3,m4aファイル名
-AI_MODEL_ID = os.environ.get(
-    "AI_MODEL_ID", "gemini-2.5-flash"
-)  # GeminiモデルID（未指定時はデフォルト）
+AI_MODEL_ID = os.environ.get("AI_MODEL_ID", "gemini-2.5-flash")  # GeminiモデルID（未指定時はデフォルト）
 R2_CUSTOM_DOMAIN = os.environ.get(
     "CUSTOM_DOMAIN", "podcast.sunabalog.com"
 )  # R2のカスタムドメイン（未指定時はエンドポイントURL）
@@ -48,10 +44,9 @@ print("###########################\n")
 def process_podcast_workflow():
     """GCSへのファイルアップロードをトリガーに実行されるメイン関数"""
     # AUDIO_FILE_URL None チェック
-    if AUDIO_FILE_URL is None:
-        if AUDIO_FILE_URL is None != AUDIO_FILE_URL is None:
-            print(f"Skipping file: {AUDIO_FILE_URL is None}")
-            return
+    if not AUDIO_FILE_URL:
+        print("Error: AUDIO_FILE_URL is not set.")
+        return
 
     gcs_uri = AUDIO_FILE_URL
     print(f"\n## Start processing: {gcs_uri} ##")
@@ -70,6 +65,7 @@ def process_podcast_workflow():
     secret_manager_client = SecretManagerClient(project_id=PROJECT_ID, secret_name=SECRET_NAME)
     r2_access_key, r2_secret_key = secret_manager_client.get_r2_credentials()
     discord_webhook_url = secret_manager_client.get_discord_webhook_url()
+    notifier_client = Notifier(discord_webhook_url=discord_webhook_url)
 
     try:
         audio_analyzer = AudioAnalyzer(project_id=PROJECT_ID)
@@ -81,7 +77,6 @@ def process_podcast_workflow():
             secret_key=r2_secret_key,
         )
         gcs_client = GCSClient(project_id=PROJECT_ID)
-        notifier_client = Notifier(discord_webhook_url=discord_webhook_url)
 
         # RSS feedからエピソード情報等を取得
         rss_feed = r2_client.download_file(f"{SUBDIRECTORY}/feed.xml")
@@ -119,9 +114,7 @@ def process_podcast_workflow():
             public=True,
             custom_domain=R2_CUSTOM_DOMAIN,
         )
-        print(
-            f"Uploaded audio to R2: {public_url}, Size: {file_size_bytes} bytes, Duration: {duration_str}"
-        )
+        print(f"Uploaded audio to R2: {public_url}, Size: {file_size_bytes} bytes, Duration: {duration_str}")
 
         # --- Phase 3: Update RSS ---
         print("\n## Updating RSS Feed... ##")

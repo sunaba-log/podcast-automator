@@ -1,11 +1,104 @@
-## 開発環境
+# Podcast Processor Agent (Cloud Run Job)
 
-- uv 0.9.18 (0cee76417 2025-12-16)
-- python ^3.12`
+Google Cloud Run Jobs 上で動作するポッドキャスト配信自動化エージェントです。
+GCS (Google Cloud Storage) にアップロードされた音声ファイルをトリガーに、AI による分析、Cloudflare R2 へのホスティング、RSS フィードの更新、Discord 通知までを一貫して実行します。
 
-## ディレクトリ構造 \*Cloudflare R2 における
+## ディレクトリ構成
 
-### エピソード別
+```sh
+.
+├── main.py              # エントリーポイント (ワークフロー定義)
+├── services/            # 各種サービスクラス
+│   ├── ai_analyzer.py   # Vertex AI 連携
+│   ├── r2_client.py     # Cloudflare R2 操作
+│   ├── rss_manager.py   # RSSフィード生成・更新
+│   └── ...
+├── pyproject.toml       # 依存関係定義
+├── uv.lock              # ロックファイル
+└── Dockerfile           # コンテナ定義
+```
+
+## 🚀 主な機能
+
+1.  **AI 分析 (Vertex AI / Gemini)**
+    - 音声ファイル (GCS) を直接読み込み、文字起こしと要約（タイトル・概要）を自動生成します。
+2.  **ホスティング (Cloudflare R2)**
+    - 音声ファイルを GCS から配信用の R2 バケットへストリーム転送します（ローカルディスク消費なし）。
+    - ファイルサイズと再生時間を自動計算します。
+3.  **RSS フィード自動更新**
+    - 既存の `feed.xml` を R2 から取得し、新エピソードを追加して再アップロードします。
+4.  **通知 (Discord)**
+    - 処理の進捗（開始・完了・エラー）を Discord Webhook で通知します。
+
+## 📋 必要な環境
+
+- **Google Cloud Platform**
+  - Cloud Run Jobs
+  - Vertex AI API (Gemini モデルの利用)
+  - Cloud Storage (一時保存用)
+  - Secret Manager (認証情報の管理)
+- **Cloudflare**
+  - R2 Storage (音声および RSS の公開用)
+- **Python 3.12+**
+  - パッケージ管理: `uv`
+
+## ⚙️ 環境変数 (Environment Variables)
+
+実行時に以下の環境変数を設定します。Cloud Run Job 実行時の `--set-env-vars` またはローカル実行時の `.env` で指定してください。
+
+| 変数名            | デフォルト値 / 例                      | 説明                                    |
+| :---------------- | :------------------------------------- | :-------------------------------------- |
+| `PROJECT_ID`      | `taka-test-xxxx`                       | GCP プロジェクト ID                     |
+| `AUDIO_FILE_URL`  | **(必須)** `gs://bucket/file.m4a`      | 処理対象の音声ファイルの GCS URI        |
+| `SECRET_NAME`     | `sunabalog-r2`                         | Secret Manager のシークレット名         |
+| `R2_ENDPOINT_URL` | `https://xxx.r2.cloudflarestorage.com` | Cloudflare R2 のエンドポイント          |
+| `BUCKET_NAME`     | `podcast`                              | R2 のバケット名                         |
+| `SUBDIRECTORY`    | `test`                                 | R2 内の保存先サブディレクトリ           |
+| `AI_MODEL_ID`     | `gemini-2.5-flash`                     | 使用する Vertex AI (Gemini) のモデル ID |
+| `CUSTOM_DOMAIN`   | `podcast.sunabalog.com`                | 配信用のカスタムドメイン                |
+
+## 🔐 シークレット管理 (Google Secret Manager)
+
+本アプリケーションは、機密情報を Google Secret Manager から取得します。
+環境変数 `SECRET_NAME` で指定したシークレットに、以下の情報が含まれている必要があります（実装依存のため、JSON 形式などを想定）。
+
+- Cloudflare R2 Access Key ID
+- Cloudflare R2 Secret Access Key
+- Discord Webhook URL
+
+```json
+{
+  "r2_access_key": "<Cloudflare R2のアクセスキー>",
+  "r2_secret_key": "<Cloudflare R2のシークレットキー>",
+  "discord_webhook_url": "<Discord の webhook url>"
+}
+```
+
+## 🛠️ ローカルでの実行方法
+
+このプロジェクトはパッケージ管理に `uv` を使用しています。
+
+### 1. 依存関係のインストール
+
+```bash
+uv sync
+```
+
+### 2. gcloud login
+
+```sh
+gcloud auth application-default login
+```
+
+### 3. 実行
+
+```sh
+uv run main.py
+```
+
+## Cloudflare R2 におけるディレクトリ構造
+
+**エピソード別**
 
 「文字起こしテキスト(.txt)」や「チャプターファイル(.json)」など、1 エピソードあたりのファイル数が増える可能性あり
 
@@ -24,7 +117,7 @@ podcast.sunabalog.com/
 │ └── cover.jpg
 ```
 
-## 事前準備
+## インフラ側の事前準備
 
 ### Cloudflare R2 に RSS フィードを追加
 
@@ -109,7 +202,3 @@ docker run -v ~/.config/gcloud/application_default_credentials.json:/tmp/keys/ad
 -e GOOGLE_CLOUD_PROJECT=taka-test-481815 \
 podcast-automator-job:latest
 ```
-
-## 参考
-
-- [Directory>R2>Examples>S3 SDKs>boto3](https://developers.cloudflare.com/r2/examples/aws/boto3/)
