@@ -73,6 +73,7 @@ class TransferConfig:
     gcs_bucket: str
     trigger_file: str
     r2_bucket: str
+    r2_key_prefix: str | None
     cloudflare_account_id: str
     cloudflare_access_key_id: str
     cloudflare_secret_access_key: str
@@ -89,10 +90,12 @@ def require_env(environ: Mapping[str, str], name: str) -> str:
 
 def load_transfer_config(environ: Mapping[str, str]) -> TransferConfig:
     """Load configuration for the GCS -> R2 transfer."""
+    r2_key_prefix = environ.get("R2_KEY_PREFIX", "").strip()
     return TransferConfig(
         gcs_bucket=require_env(environ, "GCS_BUCKET"),
         trigger_file=require_env(environ, "GCS_TRIGGER_OBJECT_NAME"),
         r2_bucket=require_env(environ, "R2_BUCKET"),
+        r2_key_prefix=r2_key_prefix or None,
         cloudflare_account_id=require_env(environ, "CLOUDFLARE_ACCOUNT_ID"),
         cloudflare_access_key_id=require_env(environ, "CLOUDFLARE_ACCESS_KEY_ID"),
         cloudflare_secret_access_key=require_env(environ, "CLOUDFLARE_SECRET_ACCESS_KEY"),
@@ -130,6 +133,9 @@ def transfer_gcs_to_r2(config: TransferConfig, logger: logging.Logger) -> str:
     content_type = blob.content_type
 
     r2_key = config.trigger_file
+    if config.r2_key_prefix:
+        prefix = config.r2_key_prefix.strip("/")
+        r2_key = f"{prefix}/{config.trigger_file.lstrip('/')}"
     extra_args = {"ContentType": content_type} if content_type else None
 
     with blob.open("rb") as gcs_stream:
