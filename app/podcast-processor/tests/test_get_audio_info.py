@@ -23,7 +23,7 @@ class TestGetAudioInfo:
             with open("./data/short_dialogue.m4a", "rb") as f:
                 file_buffer.write(f.read())
             file_buffer.seek(0)
-            result = get_audio_info(file_buffer=file_buffer, format="m4a")
+            result = get_audio_info(file_buffer=file_buffer, audio_format="m4a")
             assert len(result) == 2
             assert isinstance(result[0], int)
             assert isinstance(result[1], str)

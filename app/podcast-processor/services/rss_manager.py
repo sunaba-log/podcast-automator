@@ -1,14 +1,20 @@
-import datetime
+import datetime  # noqa: D100
+import logging
 import uuid
 
 import feedparser
 import pytz
 from feedgen.feed import FeedGenerator
 
+logger = logging.getLogger(__name__)
+
 
 class PodcastRssManager:
-    def __init__(self, rss_xml: str | None = None):
+    """ポッドキャストRSS管理クラス."""
+
+    def __init__(self, rss_xml: str | None = None) -> None:
         """ポッドキャストRSS管理クラス.
+
         Args:
             rss_xml: 既存のRSS XML文字列. 指定しない場合は None.
 
@@ -27,13 +33,12 @@ class PodcastRssManager:
         self.fg = None
         self.total_episodes = 0
         if self.rss_xml is None:
-            print(
-                "No existing RSS XML provided; execute generate_podcast_rss to create a new feed before updating."
-            )
+            logger.warning("No existing RSS XML provided;")
+            logger.warning("Execute generate_podcast_rss to create a new feed before updating.")
         else:
             self._parse_rss()
 
-    def _parse_rss(self):
+    def _parse_rss(self) -> None:
         """既存のRSS XMLをパースしてFeedGeneratorを初期化."""
         if not self.rss_xml:
             raise ValueError("RSS XML is not set")
@@ -46,14 +51,13 @@ class PodcastRssManager:
             feed = feedparser.parse(self.rss_xml)
 
             if feed.bozo and isinstance(feed.bozo_exception, Exception):
-                raise ValueError(f"Failed to parse RSS: {feed.bozo_exception}")
+                msg = f"Failed to parse RSS: {feed.bozo_exception}"
+                raise ValueError(msg)
 
-            # チャンネル（feed）情報を抽出
+            # チャンネル（feed）情報を抽出  # noqa: RUF003
             feed_info = feed.feed
             self.fg.title(feed_info.get("title", "sunabalog"))
-            self.fg.description(
-                feed_info.get("summary", feed_info.get("subtitle", "30 Days to Build (or Not)"))
-            )
+            self.fg.description(feed_info.get("summary", feed_info.get("subtitle", "30 Days to Build (or Not)")))
             self.fg.language(feed_info.get("language", "ja"))
 
             # リンク情報を抽出
@@ -109,11 +113,9 @@ class PodcastRssManager:
 
                 # 公開日を抽出
                 if "published_parsed" in entry:
-                    item_pubdate = datetime.datetime(
-                        *entry["published_parsed"][:6], tzinfo=pytz.UTC
-                    )
+                    item_pubdate = datetime.datetime(*entry["published_parsed"][:6], tzinfo=pytz.UTC)
 
-                # エンクロージャ（音声ファイル）を抽出
+                # エンクロージャ（音声ファイル）を抽出  # noqa: RUF003
                 audio_url = ""
                 file_size = "0"
                 mime_type = "audio/mpeg"
@@ -159,12 +161,10 @@ class PodcastRssManager:
         except Exception as e:
             raise ValueError(f"Failed to parse RSS XML: {e}")
 
-    def _ensure_fg_loaded(self):
+    def _ensure_fg_loaded(self) -> None:
         """FeedGeneratorが読み込まれていることを確認."""
         if self.fg is None:
-            raise RuntimeError(
-                "RSS feed not loaded. Initialize with rss_xml or call generate_podcast_rss first."
-            )
+            raise RuntimeError("RSS feed not loaded. Initialize with rss_xml or call generate_podcast_rss first.")
 
     def get_total_episodes(self) -> int:
         """RSSフィード内のエピソード数を取得."""
@@ -204,7 +204,7 @@ class PodcastRssManager:
 
         return episode_info
 
-    def update_title(self, new_title: str):
+    def update_title(self, new_title: str) -> None:
         """RSS XMLのタイトルを更新.
 
         Args:
@@ -214,7 +214,7 @@ class PodcastRssManager:
         self.fg.title(new_title)
         self.rss_xml = self.fg.rss_str(pretty=True).decode("utf-8")
 
-    def update_description(self, new_description: str):
+    def update_description(self, new_description: str) -> None:
         """RSS XMLの説明を更新.
 
         Args:
@@ -224,7 +224,7 @@ class PodcastRssManager:
         self.fg.description(new_description)
         self.rss_xml = self.fg.rss_str(pretty=True).decode("utf-8")
 
-    def update_category(self, new_category: str):
+    def update_category(self, new_category: str) -> None:
         """RSS XMLのカテゴリを更新.
 
         Args:
@@ -257,7 +257,8 @@ class PodcastRssManager:
         required_fields = ["title", "description", "audio_url"]
         for field in required_fields:
             if field not in episode_data:
-                raise ValueError(f"Missing required field: {field}")
+                msg = f"Missing required field: {field}"
+                raise ValueError(msg)
 
         # 新しいエントリを作成
         fe = self.fg.add_entry()
@@ -363,9 +364,7 @@ class PodcastRssManager:
                             episode_data["audio_url"] = link.get("href", "")
                             episode_data["mime_type"] = link.get("type", "audio/mpeg")
                             episode_data["file_size"] = (
-                                int(link.get("length", "0"))
-                                if link.get("length", "0").isdigit()
-                                else 0
+                                int(link.get("length", "0")) if link.get("length", "0").isdigit() else 0
                             )
                             break
 
@@ -406,7 +405,8 @@ class PodcastRssManager:
                 break
 
         if not entry_found:
-            raise ValueError(f"Episode with ID '{episode_id}' not found")
+            msg = f"Episode with ID '{episode_id}' not found"
+            raise ValueError(msg)
 
         self.rss_xml = self.fg.rss_str(pretty=True).decode("utf-8")
 
@@ -445,7 +445,8 @@ class PodcastRssManager:
                 break
 
         if not entry_found:
-            raise ValueError(f"Episode with ID '{episode_id}' not found")
+            msg = f"Episode with ID '{episode_id}' not found"
+            raise ValueError(msg)
 
         # FeedGeneratorをリセット
         self.fg = FeedGenerator()
@@ -476,9 +477,7 @@ class PodcastRssManager:
                 if link.get("rel") == "enclosure":
                     episode_data["audio_url"] = link.get("href", "")
                     episode_data["mime_type"] = link.get("type", "audio/mpeg")
-                    episode_data["file_size"] = (
-                        int(link.get("length", "0")) if link.get("length", "0").isdigit() else 0
-                    )
+                    episode_data["file_size"] = int(link.get("length", "0")) if link.get("length", "0").isdigit() else 0
                     break
 
             if not episode_data["audio_url"]:
@@ -490,9 +489,7 @@ class PodcastRssManager:
             if "itunes_duration" in entry:
                 episode_data["duration"] = str(entry["itunes_duration"])
             if "published_parsed" in entry:
-                episode_data["pub_date"] = datetime.datetime(
-                    *entry["published_parsed"][:6], tzinfo=pytz.UTC
-                )
+                episode_data["pub_date"] = datetime.datetime(*entry["published_parsed"][:6], tzinfo=pytz.UTC)
             if entry.get("link"):
                 episode_data["link"] = entry["link"]
 
@@ -500,7 +497,7 @@ class PodcastRssManager:
 
         self.rss_xml = self.fg.rss_str(pretty=True).decode("utf-8")
         self.total_episodes -= 1
-        print(self.total_episodes, "エピソード数を更新済み in delete_episode")
+        logger.info("%d エピソード数を更新済み in delete_episode", self.total_episodes)
 
     def generate_podcast_rss(
         self,
@@ -535,10 +532,10 @@ class PodcastRssManager:
         # 1. FeedGeneratorの初期化
         self.fg = FeedGenerator()
 
-        # Podcast拡張機能（iTunesタグなど）を読み込む
+        # Podcast拡張機能（iTunesタグなど）を読み込む  # noqa: RUF003
         self.fg.load_extension("podcast")
 
-        # --- Channel（番組全体）の設定 ---
+        # --- Channel（番組全体）の設定 ---  # noqa: RUF003
         self.fg.title(title)  # 番組タイトル
         self.fg.link(href="https://sunabalog.com", rel="alternate")  # 番組サイト
         self.fg.description(description)  # 番組説明
@@ -564,7 +561,7 @@ class PodcastRssManager:
             self.fg.podcast.itunes_owner(name=owner_name, email="noreply@example.com")
 
         # --- RSS生成 ---
-        # 文字列として取得（Cloudflare R2やS3にアップロードする場合など）
+        # 文字列として取得（Cloudflare R2やS3にアップロードする場合など）  # noqa: RUF003
         rss_str = self.fg.rss_str(pretty=True)
         self.rss_xml = rss_str.decode("utf-8")
         return self.rss_xml

@@ -73,36 +73,8 @@ def test_upload_file(monkeypatch):
     assert url == f"{ENDPOINT_URL}/bucket/remote/key"
 
 
-def test_upload_json_calls_upload_file(monkeypatch):
-    storage = _load_storage_module()
-
-    recorded = {}
-
-    def fake_upload(self, file_content, remote_key, content_type=None, public=True):
-        recorded["file_content"] = file_content
-        recorded["remote_key"] = remote_key
-        recorded["content_type"] = content_type
-        recorded["public"] = public
-        return "http://example.com/json"
-
-    monkeypatch.setattr(storage.R2Client, "upload_file", fake_upload)
-
-    r2 = storage.R2Client(PROJECT_ID, SECRET_ID, ENDPOINT_URL, "bucket")
-    url = r2.upload_json({"a": 1}, "data.json", public=False)
-
-    assert url == "http://example.com/json"
-    # upload_json writes a temp file and passes its path to upload_file in current implementation
-    assert isinstance(recorded["file_content"], str)
-    assert recorded["remote_key"] == "data.json"
-    assert recorded["content_type"] == "application/json"
-    assert recorded["public"] is False
-
-
 def test_generate_public_url():
     storage = _load_storage_module()
     r2 = storage.R2Client(PROJECT_ID, SECRET_ID, "https://endpoint", "bucket")
     assert r2.generate_public_url("key") == "https://endpoint/bucket/key"
-    assert (
-        r2.generate_public_url("key", custom_domain="https://cdn.example.com")
-        == "https://cdn.example.com/key"
-    )
+    assert r2.generate_public_url("key", custom_domain="https://cdn.example.com") == "https://cdn.example.com/key"

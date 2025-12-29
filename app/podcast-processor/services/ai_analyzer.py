@@ -1,11 +1,11 @@
-import os
+import os  # noqa: D100
 from pathlib import Path
 
 from google import genai
 from google.genai.types import GenerateContentConfig, Part
 from pydantic import BaseModel, Field
 
-# 参考：https://github.com/GoogleCloudPlatform/generative-ai/blob/main/gemini/use-cases/multimodal-sentiment-analysis/intro_to_multimodal_sentiment_analysis.ipynb
+# 参考 https://github.com/GoogleCloudPlatform/generative-ai/blob/main/gemini/use-cases/multimodal-sentiment-analysis/intro_to_multimodal_sentiment_analysis.ipynb
 
 # Gemini対応の音声フォーマットマッピング
 AUDIO_FORMAT_MAPPING = {
@@ -28,6 +28,8 @@ AUDIO_FORMAT_MAPPING = {
 # 構造化出力用モデル
 # https://ai.google.dev/gemini-api/docs/structured-output?hl=ja&example=recipe
 class Summary(BaseModel):
+    """音声要約の構造化出力モデル."""
+
     title: str = Field(..., description="会議の見出し")
     description: str = Field(..., description="会議内容の説明文")
 
@@ -52,7 +54,7 @@ class AudioAnalyzer:
     DEFAULT_MODEL_ID = "gemini-2.0-flash-001"
     DEFAULT_LOCATION = "us-central1"
 
-    def __init__(self, project_id: str | None = None, location: str | None = None):
+    def __init__(self, project_id: str | None = None, location: str | None = None) -> None:
         """AudioAnalyzerを初期化.
 
         Args:
@@ -83,13 +85,12 @@ class AudioAnalyzer:
 
         if extension not in AUDIO_FORMAT_MAPPING:
             supported = ", ".join(sorted(AUDIO_FORMAT_MAPPING.keys()))
-            raise ValueError(
-                f"Unsupported audio format: .{extension}. Supported formats: {supported}"
-            )
+            msg = f"Unsupported audio format: .{extension}. Supported formats: {supported}"
+            raise ValueError(msg)
 
         return AUDIO_FORMAT_MAPPING[extension]
 
-    def generate_transcript(self, gcs_uri: str, model_id: str | None = None) -> str:
+    def generate_transcript(self, gcs_uri: str, model_id: str | None = None) -> str | None:
         """Geminiモデルを使って音声ファイルの文字起こしを生成.
 
         Args:
@@ -120,9 +121,7 @@ class AudioAnalyzer:
 
         return response.text
 
-    def summarize_transcript(
-        self, transcript: str, prompt: str | None = None, model_id: str | None = None
-    ) -> Summary:
+    def summarize_transcript(self, transcript: str, prompt: str | None = None, model_id: str | None = None) -> Summary:
         """Geminiモデルを使って文字起こしの要約を生成.
 
         Args:
@@ -147,23 +146,26 @@ class AudioAnalyzer:
                 response_json_schema=Summary.model_json_schema(),
             ),
         )
-        summary = Summary.model_validate_json(response.text)
-        return summary
+        if not response.text:
+            raise ValueError("No response received from the model.")
+        return Summary.model_validate_json(response.text)
 
 
 # 後方互換性のための関数ラッパー
-def generate_transcript_with_gemini(gcs_uri: str) -> str:
+def generate_transcript_with_gemini(gcs_uri: str) -> str | None:
     """Geminiモデルを使って音声ファイルの文字起こしを生成.
 
     Deprecated: AudioAnalyzer.generate_transcript() を使用してください.
     """
     analyzer = AudioAnalyzer()
+    if not gcs_uri:
+        raise ValueError("gcs_uri must be provided.")
     return analyzer.generate_transcript(gcs_uri)
 
 
 def summarize_transcript_with_gemini(
-    transcript: str, prompt: str, model_id: str = "gemini-2.0-flash-001"
-) -> str:
+    transcript: str, prompt: str | None = None, model_id: str = "gemini-2.0-flash-001"
+) -> Summary:
     """Geminiモデルを使って文字起こしの要約を生成.
 
     Deprecated: AudioAnalyzer.summarize_transcript() を使用してください.

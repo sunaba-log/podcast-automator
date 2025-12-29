@@ -1,6 +1,10 @@
+"""Main module for podcast processing workflow triggered by GCS uploads."""  # noqa: INP001
+
+import logging
 import mimetypes
 import os
 import sys
+from pathlib import Path
 
 from services import (
     AudioAnalyzer,
@@ -12,55 +16,47 @@ from services import (
     transfer_gcs_to_r2,
 )
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
+
 # cloud run jobs
 # https://docs.cloud.google.com/run/docs/quickstarts/jobs/build-create-python?hl=ja
 
 PROJECT_ID = os.environ.get("PROJECT_ID", "taka-test-481815")
 SECRET_NAME = os.environ.get("SECRET_NAME", "sunabalog-r2")
+GCS_BUCKET = os.environ.get("GCS_BUCKET", "sample-audio-for-sunabalog")
+GCS_TRIGGER_OBJECT_NAME = os.environ.get("GCS_TRIGGER_OBJECT_NAME", "short_dialogue.m4a")
 R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL", "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com")
-BUCKET_NAME = os.environ.get("BUCKET_NAME", "podcast")
+R2_BUCKET = os.environ.get("R2_BUCKET", "podcast")
 SUBDIRECTORY = os.environ.get("SUBDIRECTORY", "test")  # R2内の保存先フォルダ
-AUDIO_FILE_URL = os.environ.get(
-    "AUDIO_FILE_URL", "gs://sample-audio-for-sunabalog/short_dialogue.m4a"
-)  # GCSにアップロードされたmp3,m4aファイル名
-AI_MODEL_ID = os.environ.get("AI_MODEL_ID", "gemini-2.5-flash")  # GeminiモデルID（未指定時はデフォルト）
+AI_MODEL_ID = os.environ.get(
+    "AI_MODEL_ID", "gemini-2.5-flash"
+)  # GeminiモデルID（未指定時はデフォルト）  # noqa: RUF003
 R2_CUSTOM_DOMAIN = os.environ.get(
-    "CUSTOM_DOMAIN", "podcast.sunabalog.com"
-)  # R2のカスタムドメイン（未指定時はエンドポイントURL）
+    "R2_CUSTOM_DOMAIN", "podcast.sunabalog.com"
+)  # R2のカスタムドメイン（未指定時はエンドポイントURL）  # noqa: RUF003
 
 # 環境変数の確認
-print("## Environment Variables ##")
-print(f"PROJECT_ID: {PROJECT_ID}")
-print(f"SECRET_NAME: {SECRET_NAME}")
-print(f"R2_ENDPOINT_URL: {R2_ENDPOINT_URL}")
-print(f"BUCKET_NAME: {BUCKET_NAME}")
-print(f"SUBDIRECTORY: {SUBDIRECTORY}")
-print(f"AUDIO_FILE_URL: {AUDIO_FILE_URL}")
-print(f"AI_MODEL_ID: {AI_MODEL_ID}")
-print(f"R2_CUSTOM_DOMAIN: {R2_CUSTOM_DOMAIN}")
-print("###########################\n")
+logger.info("## Environment Variables ##")
+logger.info("PROJECT_ID: %s", PROJECT_ID)
+logger.info("SECRET_NAME: %s", SECRET_NAME)
+logger.info("GCS_BUCKET: %s", GCS_BUCKET)
+logger.info("GCS_TRIGGER_OBJECT_NAME: %s", GCS_TRIGGER_OBJECT_NAME)
+logger.info("R2_ENDPOINT_URL: %s", R2_ENDPOINT_URL)
+logger.info("R2_BUCKET: %s", R2_BUCKET)
+logger.info("SUBDIRECTORY: %s", SUBDIRECTORY)
+logger.info("AI_MODEL_ID: %s", AI_MODEL_ID)
+logger.info("R2_CUSTOM_DOMAIN: %s", R2_CUSTOM_DOMAIN)
+logger.info("###########################\n")
 
 
-def process_podcast_workflow():
-    """GCSへのファイルアップロードをトリガーに実行されるメイン関数"""
-    # AUDIO_FILE_URL None チェック
-    if not AUDIO_FILE_URL:
-        print("Error: AUDIO_FILE_URL is not set.")
-        return
-
-    gcs_uri = AUDIO_FILE_URL
-    print(f"\n## Start processing: {gcs_uri} ##")
-    # GCS URI からバケット名とファイル名を抽出
-    parts = gcs_uri.replace("gs://", "").split("/", 1)
-    if len(parts) != 2:
-        raise ValueError(f"Invalid GCS URI: {gcs_uri}")
-    gcs_bucket_name, gcs_file_name = parts
-    print(f"GCS Bucket: {gcs_bucket_name}, File: {gcs_file_name}")
-    fn, audio_ext = os.path.splitext(gcs_file_name)
-    # Mime Type 判定（タイトル等のメタデータ取得用）
-    mime_type = mimetypes.guess_type(gcs_file_name)[0] or "audio/x-m4a"
-    print(f"Detected mime type: {mime_type}")
-
+def process_podcast_workflow() -> None:
+    """GCSへのファイルアップロードをトリガーに実行されるメイン関数."""
+    logger.info("GCS Bucket: %s, File: %s", GCS_BUCKET, GCS_TRIGGER_OBJECT_NAME)
+    gcs_path = Path(GCS_TRIGGER_OBJECT_NAME)
+    # Mime Type 判定（タイトル等のメタデータ取得用）  # noqa: RUF003
+    mime_type = mimetypes.guess_type(GCS_TRIGGER_OBJECT_NAME)[0] or "audio/x-m4a"
+    logger.info("Detected mime type: %s", mime_type)
     # secret manager から R2 と Discord の認証情報を取得
     secret_manager_client = SecretManagerClient(project_id=PROJECT_ID, secret_name=SECRET_NAME)
     r2_access_key, r2_secret_key = secret_manager_client.get_r2_credentials()
@@ -72,7 +68,7 @@ def process_podcast_workflow():
         r2_client = R2Client(
             project_id=PROJECT_ID,
             endpoint_url=R2_ENDPOINT_URL,
-            bucket_name=BUCKET_NAME,
+            bucket_name=R2_BUCKET,
             access_key=r2_access_key,
             secret_key=r2_secret_key,
         )
@@ -84,14 +80,20 @@ def process_podcast_workflow():
         rss_feed = rss_feed.decode("utf-8")
         rss_manager = PodcastRssManager(rss_xml=rss_feed)
         latest_episode_number = rss_manager.get_total_episodes() + 1
-        print(f"Latest Episode Number: {latest_episode_number}")
+        logger.info("Latest Episode Number: %s", latest_episode_number)
 
         # --- Phase 1: Fetch & Process (AI Analysis) ---
         # Vertex AIは GCS URI を直接読めるため、ダウンロード不要で分析可能
-        print("\n## Step1: Running AI Analysis... ##")
-        transcript = audio_analyzer.generate_transcript(gcs_uri, model_id=AI_MODEL_ID)
-        summary = audio_analyzer.summarize_transcript(transcript, model_id=AI_MODEL_ID)
-        print(f"Generated Summary: {summary}")
+        logger.info("\n## Step1: Running AI Analysis... ##")
+        transcript = audio_analyzer.generate_transcript(
+            f"gs://{GCS_BUCKET}/{GCS_TRIGGER_OBJECT_NAME}", model_id=AI_MODEL_ID
+        )
+        if transcript:
+            summary = audio_analyzer.summarize_transcript(transcript, model_id=AI_MODEL_ID)
+        else:
+            msg = "Failed to make transcript."
+            raise ValueError(msg)
+        logger.info("Generated Summary: %s", summary)
         summary.title = f"#{latest_episode_number} {summary.title}"
 
         # transcript と summary を保存しておくべきか
@@ -102,22 +104,22 @@ def process_podcast_workflow():
         )
 
         # --- Phase 2: Upload to R2 ---
-        print("\n## Step2: Uploading to Cloudflare R2... ##")
+        logger.info("\n## Step2: Uploading to Cloudflare R2... ##")
         # ストリームでGCSから取得し、R2へアップロード（ローカルディスク節約）
         public_url, file_size_bytes, duration_str = transfer_gcs_to_r2(
             gcs_client=gcs_client,
             r2_client=r2_client,
-            gcs_bucket_name=gcs_bucket_name,
-            gcs_object_name=gcs_file_name,
-            r2_remote_key=f"{SUBDIRECTORY}/ep/{latest_episode_number}/audio{audio_ext}",
+            gcs_bucket_name=GCS_BUCKET,
+            gcs_object_name=GCS_TRIGGER_OBJECT_NAME,
+            r2_remote_key=f"{SUBDIRECTORY}/ep/{latest_episode_number}/audio{gcs_path.suffix}",
             content_type=mime_type,
             public=True,
             custom_domain=R2_CUSTOM_DOMAIN,
         )
-        print(f"Uploaded audio to R2: {public_url}, Size: {file_size_bytes} bytes, Duration: {duration_str}")
+        logger.info("Uploaded audio to R2: %s, Size: %s bytes, Duration: %s", public_url, file_size_bytes, duration_str)
 
         # --- Phase 3: Update RSS ---
-        print("\n## Updating RSS Feed... ##")
+        logger.info("\n## Updating RSS Feed... ##")
         # rss file を R2 からダウンロードし、更新して再アップロード
         new_episode_data = {
             "title": summary.title,
@@ -140,20 +142,20 @@ def process_podcast_workflow():
         )
 
         # --- Phase 4: Notify Success ---
-        print("\n## Notifying Discord (Success)... ##")
+        logger.info("\n## Notifying Discord (Success)... ##")
         notifier_client.send_discord_message(
             message=f"Podcast Episode Published Successfully:\nTitle: {summary.title}\nURL: {public_url}"
         )
 
     except Exception as e:
-        print(f"Error occurred: {e}")
+        logger.exception("Error occurred during podcast processing:")
         notifier_client.send_discord_message(message=f"Podcast Processing Failed:\nError: {e}")
 
 
-def main():
-    """clound run jobs のエントリポイント"""
+def main() -> None:
+    """Main entry point for the podcast processor."""
     for arg in sys.argv:
-        print(arg)
+        logger.info("Argument: %s", arg)
     process_podcast_workflow()
 
 
