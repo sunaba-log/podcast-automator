@@ -1,0 +1,95 @@
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: "Branch to deploy"
+        required: true
+        default: "develop"
+        type: string
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set target ref
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.target_branch }}" ]]; then
+            echo "TARGET_REF=refs/heads/${{ inputs.target_branch }}" >> "$GITHUB_ENV"
+          else
+            echo "TARGET_REF=${GITHUB_REF}" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_REF }}
+
+      - name: Set env vars
+        run: |
+          if [[ "${TARGET_REF}" == "refs/heads/main" ]]; then
+            echo "ENVIRONMENT=prod" >> "$GITHUB_ENV"
+          else
+            echo "ENVIRONMENT=dev" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set Cloudflare credentials
+        run: |
+          echo "CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }}" >> "$GITHUB_ENV"
+          echo "CLOUDFLARE_ACCESS_KEY_ID=${{ secrets.CLOUDFLARE_ACCESS_KEY_ID }}" >> "$GITHUB_ENV"
+          echo "CLOUDFLARE_SECRET_ACCESS_KEY=${{ secrets.CLOUDFLARE_SECRET_ACCESS_KEY }}" >> "$GITHUB_ENV"
+
+      - name: Set Google Cloud credentials
+        run: |
+          mkdir -p "$HOME/.config/gcloud/credentials"
+          if [[ "${TARGET_REF}" == "refs/heads/main" ]]; then
+            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_BASE64_PROD }}" | base64 --decode > "$HOME/.config/gcloud/credentials/service-account.json"
+          else
+            echo "${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY_BASE64_DEV }}" | base64 --decode > "$HOME/.config/gcloud/credentials/service-account.json"
+          fi
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/credentials/service-account.json" >> "$GITHUB_ENV"
+
+      - name: Prepare .env
+        run: |
+          if [ -f .env.sample ]; then
+            awk -F= '
+              BEGIN { OFS=FS }
+              /^[[:space:]]*#/ { print; next }
+              /^[[:space:]]*$/ { print; next }
+              {
+                key=$1
+                if (ENVIRON[key] != "") {
+                  print key, ENVIRON[key]
+                } else {
+                  print $0
+                }
+              }
+            ' .env.sample > .env
+          fi
+
+      - name: Deploy
+        run: |
+          if [[ $TARGET_REF == "refs/heads/main" ]]; then
+            echo "Deploying to production..."
+            make terraform-deploy-prod DEPLOY_COMMAND_EXTENSION="-auto-approve"
+          else
+            echo "Deploying to dev..."
+            make terraform-deploy-dev DEPLOY_COMMAND_EXTENSION="-auto-approve"
+          fi
+
+  report:
+    if: always()
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Discord
+        uses: sarisia/actions-status-discord@v1
+        if: always()
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: ${{ needs.deploy.result }}
