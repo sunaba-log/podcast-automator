@@ -21,7 +21,7 @@ variable "org" {
 
 variable "project_id" {
   type        = string
-  description = "GCP project ID."
+  description = "Google Cloud project ID."
 }
 
 variable "region" {
@@ -83,6 +83,12 @@ variable "cloudflare_zone_name" {
 variable "r2_bucket_name" {
   type        = string
   description = "Cloudflare R2 bucket name for podcast assets."
+}
+
+variable "r2_key_prefix" {
+  type        = string
+  description = "Key prefix in the R2 bucket for uploaded files (empty for root)."
+  default     = "sunabalog"
 }
 
 variable "r2_subdomain" {
