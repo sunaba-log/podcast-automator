@@ -9,23 +9,25 @@ R2 からファイルをダウンロードする簡易スクリプト。
 
 import argparse
 import os
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
 from services import R2Client
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download a file from Cloudflare R2 via R2Client")
-    parser.add_argument("remote_key", help="R2 のオブジェクトキー（例: folder/file.mp3）")
+    parser = argparse.ArgumentParser(
+        description="Download a file from Cloudflare R2 via R2Client"
+    )
+    parser.add_argument(
+        "remote_key", help="R2 のオブジェクトキー（例: folder/file.mp3）"
+    )
     parser.add_argument("--out", "-o", help="保存先ローカルパス（省略時は同名で保存）")
     args = parser.parse_args()
 
     project_id = os.environ.get("PROJECT_ID", "taka-test-481815")
     secret_name = os.environ.get("SECRET_NAME", "sunabalog-r2")
     endpoint_url = os.environ.get(
-        "ENDPOINT_URL", "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com"
+        "ENDPOINT_URL",
+        "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com",
     )
     bucket_name = os.environ.get("BUCKET_NAME", "podcast")
 

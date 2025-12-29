@@ -1,14 +1,11 @@
 import os
-import sys
-from pathlib import Path
-
-# 親ディレクトリのservicesモジュールをインポート
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services import AudioAnalyzer
 
 project_id = os.environ.get("PROJECT_ID", "taka-test-481815")
-gcs_uri = os.environ.get("AUDIO_FILE_URL", "gs://sample-audio-for-sunabalog/short_dialogue.m4a")
+gcs_uri = os.environ.get(
+    "AUDIO_FILE_URL", "gs://sample-audio-for-sunabalog/short_dialogue.m4a"
+)
 model_id = os.environ.get("AI_MODEL_ID", "gemini-2.5-flash")
 bucket_name = os.environ.get("BUCKET_NAME", "podcast")
 
@@ -24,9 +21,13 @@ def main():
     print(transcript)
 
     # 文字起こしを要約
-    summary = analyzer.summarize_transcript(
-        transcript=transcript,
-    )
+    if transcript:
+        summary = analyzer.summarize_transcript(
+            transcript=transcript,
+        )
+    else:
+        msg = "Error: transcript is None"
+        raise ValueError(msg)
     print("\nSummary:")
     print(summary)
 

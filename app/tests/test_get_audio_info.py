@@ -4,13 +4,8 @@ python -m pytest tests/test_get_audio_info.py -v
 """
 
 import io
-import sys
-from pathlib import Path
 
 from services import get_audio_info
-
-# 親ディレクトリのservicesモジュールをインポート
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 class TestGetAudioInfo:
