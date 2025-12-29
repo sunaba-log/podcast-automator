@@ -18,19 +18,19 @@ module "cloud_run_job" {
   max_instance_count = 1
 
   environment_variables = {
-    GCS_BUCKET                               = google_storage_bucket.input.name
-    PROJECT_ID                               = var.project_id
+    GCS_BUCKET = google_storage_bucket.input.name
+    PROJECT_ID = var.project_id
     # TODO: remove DISCORD_WEBHOOK_INFO_URL; scheduled for deletion.
-    DISCORD_WEBHOOK_INFO_URL                 = data.google_secret_manager_secret_version.discord_webhook_info.secret_data
+    DISCORD_WEBHOOK_INFO_URL = data.google_secret_manager_secret_version.discord_webhook_info.secret_data
     # TODO: remove DISCORD_WEBHOOK_ERROR_URL; scheduled for deletion.
-    DISCORD_WEBHOOK_ERROR_URL                = data.google_secret_manager_secret_version.discord_webhook_error.secret_data
-    DISCORD_WEBHOOK_INFO_SECRET_NAME         = var.discord_webhook_info_secret_name
-    DISCORD_WEBHOOK_ERROR_SECRET_NAME        = var.discord_webhook_error_secret_name
-    R2_BUCKET                                = var.r2_bucket_name
-    R2_KEY_PREFIX                            = var.r2_key_prefix
+    DISCORD_WEBHOOK_ERROR_URL         = data.google_secret_manager_secret_version.discord_webhook_error.secret_data
+    DISCORD_WEBHOOK_INFO_SECRET_NAME  = var.discord_webhook_info_secret_name
+    DISCORD_WEBHOOK_ERROR_SECRET_NAME = var.discord_webhook_error_secret_name
+    R2_BUCKET                         = var.r2_bucket_name
+    R2_KEY_PREFIX                     = var.r2_key_prefix
     # TODO: remove CLOUDFLARE_ACCOUNT_ID; scheduled for deletion.
-    CLOUDFLARE_ACCOUNT_ID                    = var.cloudflare_account_id
-    CLOUDFLARE_ACCESS_KEY_ID                 = data.google_secret_manager_secret_version.cloudflare_access_key_id.secret_data
+    CLOUDFLARE_ACCOUNT_ID    = var.cloudflare_account_id
+    CLOUDFLARE_ACCESS_KEY_ID = data.google_secret_manager_secret_version.cloudflare_access_key_id.secret_data
     # TODO: remove CLOUDFLARE_SECRET_ACCESS_KEY; scheduled for deletion.
     CLOUDFLARE_SECRET_ACCESS_KEY             = data.google_secret_manager_secret_version.cloudflare_secret_access_key.secret_data
     CLOUDFLARE_ACCESS_KEY_ID_SECRET_NAME     = var.cloudflare_access_key_id_secret_name
