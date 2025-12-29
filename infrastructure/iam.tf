@@ -62,6 +62,14 @@ resource "google_project_iam_member" "job_run_admin" {
   depends_on = [google_project_service.required]
 }
 
+resource "google_project_iam_member" "job_secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${local.default_compute_service_account}"
+
+  depends_on = [google_project_service.required]
+}
+
 resource "google_project_iam_member" "eventarc_service_agent" {
   project = var.project_id
   role    = "roles/eventarc.serviceAgent"
