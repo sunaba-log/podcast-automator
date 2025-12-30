@@ -28,6 +28,7 @@ module "cloud_run_job" {
     DISCORD_WEBHOOK_ERROR_SECRET_NAME = var.discord_webhook_error_secret_name
     R2_BUCKET                         = var.r2_bucket_name
     R2_KEY_PREFIX                     = var.r2_key_prefix
+    R2_CUSTOM_DOMAIN                  = local.r2_custom_domain
     # TODO: remove CLOUDFLARE_ACCOUNT_ID; scheduled for deletion.
     CLOUDFLARE_ACCOUNT_ID    = var.cloudflare_account_id
     CLOUDFLARE_ACCESS_KEY_ID = data.google_secret_manager_secret_version.cloudflare_access_key_id.secret_data
