@@ -29,6 +29,18 @@ override.tf.json
 .terraformrc
 terraform.rc
 
+# python env
+.env
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# macOS files
+.DS_Store
+
 .serena/
 .venv/
 app/.venv/

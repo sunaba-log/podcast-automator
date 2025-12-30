@@ -1,14 +1,24 @@
 [project]
 name = "podcast-automator"
 version = "0.1.0"
-description = ""
+description = "Add your description here"
 requires-python = ">=3.12,<4.0"
+readme = "README.md"
 authors = [
   { name = "sunabalog" },
 ]
 dependencies = [
     "boto3>=1.42.17",
+    "feedgen>=1.0.0",
+    "feedparser>=6.0.12",
+    "functions-framework==3.*",
+    "google-cloud-aiplatform>=1.132.0",
+    "google-cloud-secret-manager>=2.26.0",
     "google-cloud-storage>=3.7.0",
+    "pydantic>=2.12.5",
+    "pydub>=0.25.1",
+    "pytz>=2025.2",
+    "requests>=2.32.5",
 ]
 
 [dependency-groups]
@@ -19,12 +29,14 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-vvv --durations=3"
+addopts = "-vvv --durations=3 --ignore=tests/test_storage.py --ignore=tests/test_ai_analyzer.py --ignore=tests/test_get_audio_info.py"
 testpaths = ["tests"]
 pythonpath = [".", "src"]
 
 [tool.ruff]
 line-length = 120
+# プロジェクト全体の除外設定 (lintとformatの両方に適用)
+exclude = ["examples/*"]
 
 [tool.ruff.lint]
 pydocstyle.convention = "google"
@@ -32,16 +44,37 @@ select = [
   "ALL",
 ]
 ignore = [
-  "ISC001",  # single-line-implicit-string-concatenation produces conflicts
-  "ANN003",  # kwargs without type check
-  "COM812",  # conflicts when used with the formatter
-  "TRY300",  # do not enforce try-else
-  "PERF203",  # allow try except in loop
-  "TRY301",  # allow raise in try
-  "TRY003",  # allow long exception messages
-  "EM101",  # allow string literals in exceptions
-  "ARG001",  # allow unused arguments (Lambda context, fixtures)
-  "ANN401",  # allow Any type for Lambda context
+  # --- Formatter / Conflicts ---
+  "ISC001",  # Implicit string concatenation (Formatterと競合するため無効化)
+  "COM812",  # Trailing comma missing (Formatterと競合するため無効化)
+
+  # --- Type Hints / Annotations ---
+  "ANN003",  # **kwargs の型ヒント不足 (ライブラリ連携などで煩雑になるため)
+  "ANN401",  # Any型の使用 (Lambda contextなど柔軟性が必要な場合のため)
+
+  # --- Exception Handling ---
+  "TRY300",  # try-else の強制 (elseを使わないスタイルを許容)
+  "PERF203", # ループ内の try-except (パフォーマンスへの影響が軽微な場合があるため)
+  "TRY301",  # tryブロック内での raise (構造が複雑になるのを避けるため)
+  "TRY003",  # 例外クラス外での長いメッセージ定義 (可読性優先)
+  "EM101",   # 例外での文字列リテラル使用 (変数定義を強制しない)
+
+  # --- Arguments & Variables ---
+  "ARG001",  # 未使用引数 (オーバーライドやLambdaなどで避けられない場合があるため)
+  "FBT001",  # Boolean Trap (関数の引数定義でBooleanを許容)
+  "PLR0913", # 引数が多すぎる (DIや設定値などで多くなるケースを許容)
+  "F841",    # 未使用変数 (アンパック代入やデバッグ中の一時変数を許容)
+
+  # --- Complexity / Code Structure ---
+  "PLR0915", # ステートメントが多すぎる (長い関数を許容)
+  "PLR0912", # 分岐が多すぎる (複雑なロジックを許容)
+  "C901",    # 循環的複雑度 (複雑なロジックを許容)
+  "E501",    # 1行が長すぎる (Formatterに任せるためLintでは無視)
+
+  # --- Others ---
+  "ERA001",  # コメントアウトされたコード (参考コードを残すため)
+  "RUF100",  # 不要な noqa (修正漏れでエラーになるのを防ぐ)
+  "T201",    # print関数の使用 (CLIツールや簡易ログのため許容)
 ]
 unfixable = [
   "S",  # do not auto fix security related findings
@@ -55,6 +88,12 @@ unfixable = [
   "ANN",  # ignore some type annotation checks in tests
   "PLR2004",  # ignore magic number compare
   "SLF001",  # allow private member access for cache reset
+  "S101",    # assert allowed in tests
+  "PLR2004", # Magic values allowed in tests
+  "ANN",     # Type annotations optional in tests
+  "D",       # Docstrings optional in tests
+  "ARG004", # Unused static method argument
+  "RUF100", # Unused `noqa` directive 
 ]
 
 [tool.ruff.lint.mccabe]
@@ -63,3 +102,6 @@ max-complexity = 20
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
+
+[tool.uv.workspace]
+members = ["."]

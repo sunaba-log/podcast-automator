@@ -4,20 +4,72 @@ from __future__ import annotations
 
 import json
 import logging
+import mimetypes
 import os
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-import boto3
-from google.cloud import storage
+from services import (
+    AudioAnalyzer,
+    GCSClient,
+    Notifier,
+    PodcastRssManager,
+    R2Client,
+    SecretManagerClient,
+    transfer_gcs_to_r2,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from botocore.client import BaseClient
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
+
+# cloud run jobs
+# https://docs.cloud.google.com/run/docs/quickstarts/jobs/build-create-python?hl=ja
+
+# 必須環境変数
+PROJECT_ID = os.environ.get("PROJECT_ID")
+GCS_BUCKET = os.environ.get("GCS_BUCKET")
+GCS_TRIGGER_OBJECT_NAME = os.environ.get("GCS_TRIGGER_OBJECT_NAME")
+R2_BUCKET = os.environ.get("R2_BUCKET")
+
+
+# 任意環境変数
+R2_KEY_PREFIX = os.environ.get("R2_KEY_PREFIX", "test")  # R2内の保存先フォルダ
+SECRET_NAME = os.environ.get("SECRET_NAME", "sunabalog-r2")
+R2_ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "8ed20f6872cea7c9219d68bfcf5f98ae")  # noqa: RUF003
+R2_ACCESS_KEY_ID = os.environ.get("CLOUDFLARE_ACCESS_KEY_ID")  # noqa: RUF003
+R2_SECRET_ACCESS_KEY = os.environ.get("CLOUDFLARE_SECRET_ACCESS_KEY")  # noqa: RUF003
+DISCORD_WEBHOOK_INFO_URL = os.environ.get("DISCORD_WEBHOOK_INFO_URL")
+AI_MODEL_ID = os.environ.get("AI_MODEL_ID", "gemini-2.5-flash")  # GeminiモデルID(未指定時はデフォルト)  # noqa: RUF003
+R2_CUSTOM_DOMAIN = os.environ.get(
+    "R2_CUSTOM_DOMAIN", "podcast.sunabalog.com"
+)  # R2のカスタムドメイン(未指定時はエンドポイントURL)  # noqa: RUF003S
+
+R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL", f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com")
+if SECRET_NAME is None and (R2_ACCESS_KEY_ID is None or R2_SECRET_ACCESS_KEY is None):
+    msg = "Either SECRET_NAME or both R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY must be provided."
+    logger.error(msg)
+    raise ValueError(msg)
+
+# 環境変数の確認
+logger.info("## Environment Variables ##")
+logger.info("PROJECT_ID: %s", PROJECT_ID)
+logger.info("SECRET_NAME: %s", SECRET_NAME)
+logger.info("GCS_BUCKET: %s", GCS_BUCKET)
+logger.info("GCS_TRIGGER_OBJECT_NAME: %s", GCS_TRIGGER_OBJECT_NAME)
+logger.info("R2_ENDPOINT_URL: %s", R2_ENDPOINT_URL)
+logger.info("R2_BUCKET: %s", R2_BUCKET)
+logger.info("R2_KEY_PREFIX: %s", R2_KEY_PREFIX)
+logger.info("AI_MODEL_ID: %s", AI_MODEL_ID)
+logger.info("R2_CUSTOM_DOMAIN: %s", R2_CUSTOM_DOMAIN)
+logger.info("###########################\n")
 
 
 def send_discord_notification(
@@ -66,100 +118,135 @@ def send_discord_notification(
         logger.exception("Failed to send Discord notification")
 
 
-@dataclass(frozen=True)
-class TransferConfig:
-    """Configuration for transferring objects from GCS to R2."""
+def process_podcast_workflow() -> None:
+    """GCSへのファイルアップロードをトリガーに実行されるメイン関数."""
+    if PROJECT_ID is None:
+        msg = "PROJECT_ID environment variable is required."
+        logger.error(msg)
+        raise ValueError(msg)
+    if GCS_BUCKET is None:
+        msg = "GCS_BUCKET environment variable is required."
+        logger.error(msg)
+        raise ValueError(msg)
+    if GCS_TRIGGER_OBJECT_NAME is None:
+        msg = "GCS_TRIGGER_OBJECT_NAME environment variable is required."
+        logger.error(msg)
+        raise ValueError(msg)
+    if R2_BUCKET is None:
+        msg = "R2_BUCKET environment variable is required."
+        logger.error(msg)
+        raise ValueError(msg)
+    logger.info("GCS Bucket: %s, File: %s", GCS_BUCKET, GCS_TRIGGER_OBJECT_NAME)
+    gcs_path = Path(GCS_TRIGGER_OBJECT_NAME)
+    # Mime Type 判定(タイトル等のメタデータ取得用)  # noqa: RUF003
+    mime_type = mimetypes.guess_type(GCS_TRIGGER_OBJECT_NAME)[0] or "audio/x-m4a"
+    logger.info("Detected mime type: %s", mime_type)
+    # secret manager から R2 と Discord の認証情報を取得
+    if SECRET_NAME:
+        secret_manager_client = SecretManagerClient(project_id=PROJECT_ID, secret_name=SECRET_NAME)
+        r2_access_key, r2_secret_key = secret_manager_client.get_r2_credentials()
+        discord_webhook_url = secret_manager_client.get_discord_webhook_url()
+    else:
+        r2_access_key = R2_ACCESS_KEY_ID
+        r2_secret_key = R2_SECRET_ACCESS_KEY
+        discord_webhook_url = DISCORD_WEBHOOK_INFO_URL
 
-    gcs_bucket: str
-    trigger_file: str
-    r2_bucket: str
-    r2_key_prefix: str | None
-    cloudflare_account_id: str
-    cloudflare_access_key_id: str
-    cloudflare_secret_access_key: str
+    notifier_client = Notifier(discord_webhook_url=discord_webhook_url)
 
+    try:
+        audio_analyzer = AudioAnalyzer(project_id=PROJECT_ID)
+        r2_client = R2Client(
+            project_id=PROJECT_ID,
+            endpoint_url=R2_ENDPOINT_URL,
+            bucket_name=R2_BUCKET,
+            access_key=r2_access_key,
+            secret_key=r2_secret_key,
+        )
+        gcs_client = GCSClient(project_id=PROJECT_ID)
 
-def require_env(environ: Mapping[str, str], name: str) -> str:
-    """Fetch a required environment variable or raise an error."""
-    value = environ.get(name)
-    if not value:
-        message = f"Missing required environment variable: {name}"
-        raise ValueError(message)
-    return value
+        # RSS feedからエピソード情報等を取得
+        rss_feed = r2_client.download_file(f"{R2_KEY_PREFIX}/feed.xml")
+        # byte -> str
+        rss_feed = rss_feed.decode("utf-8")
+        rss_manager = PodcastRssManager(rss_xml=rss_feed)
+        latest_episode_number = rss_manager.get_total_episodes() + 1
+        logger.info("Latest Episode Number: %s", latest_episode_number)
 
+        # --- Phase 1: Fetch & Process (AI Analysis) ---
+        # Vertex AIは GCS URI を直接読めるため、ダウンロード不要で分析可能
+        logger.info("\n## Step1: Running AI Analysis... ##")
+        transcript = audio_analyzer.generate_transcript(
+            f"gs://{GCS_BUCKET}/{GCS_TRIGGER_OBJECT_NAME}", model_id=AI_MODEL_ID
+        )
+        if transcript:
+            summary = audio_analyzer.summarize_transcript(transcript, model_id=AI_MODEL_ID)
+        else:
+            msg = "Failed to make transcript."
+            raise ValueError(msg)
+        logger.info("Generated Summary: %s", summary)
+        summary.title = f"#{latest_episode_number} {summary.title}"
 
-def load_transfer_config(environ: Mapping[str, str]) -> TransferConfig:
-    """Load configuration for the GCS -> R2 transfer."""
-    r2_key_prefix = environ.get("R2_KEY_PREFIX", "").strip()
-    return TransferConfig(
-        gcs_bucket=require_env(environ, "GCS_BUCKET"),
-        trigger_file=require_env(environ, "GCS_TRIGGER_OBJECT_NAME"),
-        r2_bucket=require_env(environ, "R2_BUCKET"),
-        r2_key_prefix=r2_key_prefix or None,
-        cloudflare_account_id=require_env(environ, "CLOUDFLARE_ACCOUNT_ID"),
-        cloudflare_access_key_id=require_env(environ, "CLOUDFLARE_ACCESS_KEY_ID"),
-        cloudflare_secret_access_key=require_env(environ, "CLOUDFLARE_SECRET_ACCESS_KEY"),
-    )
+        # transcript と summary を保存しておくべきか
+        # 保存する場合、R2 に保存するか GCS に保存するかを検討
+        # 今回は保存せずWebhookで通知のみ
+        notifier_client.send_discord_message(
+            message=f"New Podcast Processed:\nTitle: {summary.title}\nDescription: {summary.description}"
+        )
 
+        # --- Phase 2: Upload to R2 ---
+        logger.info("\n## Step2: Uploading to Cloudflare R2... ##")
+        # ストリームでGCSから取得し、R2へアップロード(ローカルディスク節約)
+        public_url, file_size_bytes, duration_str = transfer_gcs_to_r2(
+            gcs_client=gcs_client,
+            r2_client=r2_client,
+            gcs_bucket_name=GCS_BUCKET,
+            gcs_object_name=GCS_TRIGGER_OBJECT_NAME,
+            r2_remote_key=f"{R2_KEY_PREFIX}/ep/{latest_episode_number}/audio{gcs_path.suffix}",
+            content_type=mime_type,
+            public=True,
+            custom_domain=R2_CUSTOM_DOMAIN,
+        )
+        logger.info("Uploaded audio to R2: %s, Size: %s bytes, Duration: %s", public_url, file_size_bytes, duration_str)
 
-def build_r2_endpoint(account_id: str) -> str:
-    """Build the R2 endpoint URL from the account ID."""
-    return f"https://{account_id}.r2.cloudflarestorage.com"
+        # --- Phase 3: Update RSS ---
+        logger.info("\n## Updating RSS Feed... ##")
+        # rss file を R2 からダウンロードし、更新して再アップロード
+        new_episode_data = {
+            "title": summary.title,
+            "description": summary.description,
+            "audio_url": public_url,
+            "duration": duration_str,
+            "creator": "Sunaba Log",
+            "file_size": file_size_bytes,
+            "mime_type": mime_type,
+            "episode_type": "full",
+        }
+        rss_manager.add_episode(new_episode_data)
+        rss_xml = rss_manager.get_rss_xml()
+        rss_xml_obj = rss_xml.encode("utf-8")
+        r2_client.upload_file(
+            file_content=rss_xml_obj,
+            remote_key=f"{R2_KEY_PREFIX}/feed.xml",
+            content_type="application/rss+xml; charset=utf-8",
+            public=True,
+        )
 
+        # --- Phase 4: Notify Success ---
+        logger.info("\n## Notifying Discord (Success)... ##")
+        notifier_client.send_discord_message(
+            message=f"Podcast Episode Published Successfully:\nTitle: {summary.title}\nURL: {public_url}"
+        )
 
-def create_r2_client(config: TransferConfig) -> BaseClient:
-    """Create a boto3 client configured for Cloudflare R2."""
-    return boto3.client(
-        "s3",
-        endpoint_url=build_r2_endpoint(config.cloudflare_account_id),
-        aws_access_key_id=config.cloudflare_access_key_id,
-        aws_secret_access_key=config.cloudflare_secret_access_key,
-        region_name="auto",
-    )
-
-
-def transfer_gcs_to_r2(config: TransferConfig, logger: logging.Logger) -> str:
-    """Stream a GCS object into the Cloudflare R2 bucket."""
-    gcs_client = storage.Client()
-    r2_client = create_r2_client(config)
-
-    bucket = gcs_client.bucket(config.gcs_bucket)
-    blob = bucket.blob(config.trigger_file)
-    if not blob.exists():
-        message = f"GCS object not found: gs://{config.gcs_bucket}/{config.trigger_file}"
-        raise FileNotFoundError(message)
-
-    blob.reload()
-    content_type = blob.content_type
-
-    r2_key = config.trigger_file
-    if config.r2_key_prefix:
-        prefix = config.r2_key_prefix.strip("/")
-        r2_key = f"{prefix}/{config.trigger_file.lstrip('/')}"
-    extra_args = {"ContentType": content_type} if content_type else None
-
-    with blob.open("rb") as gcs_stream:
-        r2_client.upload_fileobj(gcs_stream, config.r2_bucket, r2_key, ExtraArgs=extra_args)
-
-    return r2_key
+    except Exception as e:
+        logger.exception("Error occurred during podcast processing:")
+        notifier_client.send_discord_message(message=f"Podcast Processing Failed:\nError: {e}")
 
 
 def main() -> None:
-    """Log the current environment to stdout."""
-    logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
-    logger = logging.getLogger(__name__)
-    send_discord_notification("podcast-automator: execution started")
-
-    try:
-        config = load_transfer_config(os.environ)
-        transfer_gcs_to_r2(config, logger)
-    except Exception as exc:
-        logger.exception("GCS to R2 transfer failed")
-        error_webhook = os.environ.get("DISCORD_WEBHOOK_ERROR_URL")
-        send_discord_notification(f"podcast-automator: execution failed: {exc}", webhook_url=error_webhook)
-        raise SystemExit(1) from exc
-
-    send_discord_notification("podcast-automator: execution completed")
+    """Main entry point for the podcast processor."""
+    for arg in sys.argv:
+        logger.info("Argument: %s", arg)
+    process_podcast_workflow()
 
 
 if __name__ == "__main__":

@@ -3,9 +3,11 @@ FROM python:3.12-slim as baseimage
 ARG APP_DIR=app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends tzdata \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir --upgrade pip uv
 WORKDIR /workspace
 
