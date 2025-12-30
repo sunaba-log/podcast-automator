@@ -42,7 +42,7 @@ R2_BUCKET = os.environ.get("R2_BUCKET")
 
 # 任意環境変数
 R2_KEY_PREFIX = os.environ.get("R2_KEY_PREFIX", "test")  # R2内の保存先フォルダ
-SECRET_NAME = os.environ.get("SECRET_NAME", "sunabalog-r2")
+SECRET_NAME = os.environ.get("SECRET_NAME")
 R2_ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "8ed20f6872cea7c9219d68bfcf5f98ae")  # noqa: RUF003
 R2_ACCESS_KEY_ID = os.environ.get("CLOUDFLARE_ACCESS_KEY_ID")  # noqa: RUF003
 R2_SECRET_ACCESS_KEY = os.environ.get("CLOUDFLARE_SECRET_ACCESS_KEY")  # noqa: RUF003
