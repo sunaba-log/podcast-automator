@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 class SecretJson:
     """シークレット."""
 
-    r2_access_key: str
-    r2_secret_key: str
-    discord_webhook_url: str
+    r2_access_key: str | None
+    r2_secret_key: str | None
+    discord_webhook_url: str | None
 
 
 class SecretManagerClient:
@@ -34,9 +34,9 @@ class SecretManagerClient:
             response = self.client.access_secret_version(request={"name": secret_path})
             secret_json = json.loads(response.payload.data.decode("UTF-8"))
             return SecretJson(
-                r2_access_key=secret_json.get("r2_access_key", ""),
-                r2_secret_key=secret_json.get("r2_secret_key", ""),
-                discord_webhook_url=secret_json.get("discord_webhook_url", ""),
+                r2_access_key=secret_json.get("r2_access_key"),
+                r2_secret_key=secret_json.get("r2_secret_key"),
+                discord_webhook_url=secret_json.get("discord_webhook_url"),
             )
         except Exception as e:
             logger.exception("Failed to get credentials")
@@ -46,6 +46,6 @@ class SecretManagerClient:
         """R2 認証情報を取得."""
         return self.secrets.r2_access_key, self.secrets.r2_secret_key
 
-    def get_discord_webhook_url(self) -> str:
+    def get_discord_webhook_url(self) -> str | None:
         """Discord Webhook URL を取得."""
         return self.secrets.discord_webhook_url

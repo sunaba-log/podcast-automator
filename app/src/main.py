@@ -33,17 +33,30 @@ logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
 # cloud run jobs
 # https://docs.cloud.google.com/run/docs/quickstarts/jobs/build-create-python?hl=ja
 
-PROJECT_ID = os.environ.get("PROJECT_ID", "taka-test-481815")
+# 必須環境変数
+PROJECT_ID = os.environ.get("PROJECT_ID")
+GCS_BUCKET = os.environ.get("GCS_BUCKET")
+GCS_TRIGGER_OBJECT_NAME = os.environ.get("GCS_TRIGGER_OBJECT_NAME")
+R2_BUCKET = os.environ.get("R2_BUCKET")
+
+
+# 任意環境変数
+R2_KEY_PREFIX = os.environ.get("R2_KEY_PREFIX", "test")  # R2内の保存先フォルダ
 SECRET_NAME = os.environ.get("SECRET_NAME", "sunabalog-r2")
-GCS_BUCKET = os.environ.get("GCS_BUCKET", "sample-audio-for-sunabalog")
-GCS_TRIGGER_OBJECT_NAME = os.environ.get("GCS_TRIGGER_OBJECT_NAME", "short_dialogue.m4a")
-R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL", "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com")
-R2_BUCKET = os.environ.get("R2_BUCKET", "podcast")
-SUBDIRECTORY = os.environ.get("SUBDIRECTORY", "test")  # R2内の保存先フォルダ
+R2_ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "8ed20f6872cea7c9219d68bfcf5f98ae")  # noqa: RUF003
+R2_ACCESS_KEY_ID = os.environ.get("CLOUDFLARE_ACCESS_KEY_ID")  # noqa: RUF003
+R2_SECRET_ACCESS_KEY = os.environ.get("CLOUDFLARE_SECRET_ACCESS_KEY")  # noqa: RUF003
+DISCORD_WEBHOOK_INFO_URL = os.environ.get("DISCORD_WEBHOOK_INFO_URL")
 AI_MODEL_ID = os.environ.get("AI_MODEL_ID", "gemini-2.5-flash")  # GeminiモデルID(未指定時はデフォルト)  # noqa: RUF003
 R2_CUSTOM_DOMAIN = os.environ.get(
     "R2_CUSTOM_DOMAIN", "podcast.sunabalog.com"
-)  # R2のカスタムドメイン(未指定時はエンドポイントURL)  # noqa: RUF003
+)  # R2のカスタムドメイン(未指定時はエンドポイントURL)  # noqa: RUF003S
+
+R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL", f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com")
+if SECRET_NAME is None and (R2_ACCESS_KEY_ID is None or R2_SECRET_ACCESS_KEY is None):
+    msg = "Either SECRET_NAME or both R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY must be provided."
+    logger.error(msg)
+    raise ValueError(msg)
 
 # 環境変数の確認
 logger.info("## Environment Variables ##")
@@ -53,7 +66,7 @@ logger.info("GCS_BUCKET: %s", GCS_BUCKET)
 logger.info("GCS_TRIGGER_OBJECT_NAME: %s", GCS_TRIGGER_OBJECT_NAME)
 logger.info("R2_ENDPOINT_URL: %s", R2_ENDPOINT_URL)
 logger.info("R2_BUCKET: %s", R2_BUCKET)
-logger.info("SUBDIRECTORY: %s", SUBDIRECTORY)
+logger.info("R2_KEY_PREFIX: %s", R2_KEY_PREFIX)
 logger.info("AI_MODEL_ID: %s", AI_MODEL_ID)
 logger.info("R2_CUSTOM_DOMAIN: %s", R2_CUSTOM_DOMAIN)
 logger.info("###########################\n")
@@ -107,15 +120,37 @@ def send_discord_notification(
 
 def process_podcast_workflow() -> None:
     """GCSへのファイルアップロードをトリガーに実行されるメイン関数."""
+    if PROJECT_ID is None:
+        msg = "PROJECT_ID environment variable is required."
+        logger.error(msg)
+        raise ValueError(msg)
+    if GCS_BUCKET is None:
+        msg = "GCS_BUCKET environment variable is required."
+        logger.error(msg)
+        raise ValueError(msg)
+    if GCS_TRIGGER_OBJECT_NAME is None:
+        msg = "GCS_TRIGGER_OBJECT_NAME environment variable is required."
+        logger.error(msg)
+        raise ValueError(msg)
+    if R2_BUCKET is None:
+        msg = "R2_BUCKET environment variable is required."
+        logger.error(msg)
+        raise ValueError(msg)
     logger.info("GCS Bucket: %s, File: %s", GCS_BUCKET, GCS_TRIGGER_OBJECT_NAME)
     gcs_path = Path(GCS_TRIGGER_OBJECT_NAME)
     # Mime Type 判定(タイトル等のメタデータ取得用)  # noqa: RUF003
     mime_type = mimetypes.guess_type(GCS_TRIGGER_OBJECT_NAME)[0] or "audio/x-m4a"
     logger.info("Detected mime type: %s", mime_type)
     # secret manager から R2 と Discord の認証情報を取得
-    secret_manager_client = SecretManagerClient(project_id=PROJECT_ID, secret_name=SECRET_NAME)
-    r2_access_key, r2_secret_key = secret_manager_client.get_r2_credentials()
-    discord_webhook_url = secret_manager_client.get_discord_webhook_url()
+    if SECRET_NAME:
+        secret_manager_client = SecretManagerClient(project_id=PROJECT_ID, secret_name=SECRET_NAME)
+        r2_access_key, r2_secret_key = secret_manager_client.get_r2_credentials()
+        discord_webhook_url = secret_manager_client.get_discord_webhook_url()
+    else:
+        r2_access_key = R2_ACCESS_KEY_ID
+        r2_secret_key = R2_SECRET_ACCESS_KEY
+        discord_webhook_url = DISCORD_WEBHOOK_INFO_URL
+
     notifier_client = Notifier(discord_webhook_url=discord_webhook_url)
 
     try:
@@ -130,7 +165,7 @@ def process_podcast_workflow() -> None:
         gcs_client = GCSClient(project_id=PROJECT_ID)
 
         # RSS feedからエピソード情報等を取得
-        rss_feed = r2_client.download_file(f"{SUBDIRECTORY}/feed.xml")
+        rss_feed = r2_client.download_file(f"{R2_KEY_PREFIX}/feed.xml")
         # byte -> str
         rss_feed = rss_feed.decode("utf-8")
         rss_manager = PodcastRssManager(rss_xml=rss_feed)
@@ -166,7 +201,7 @@ def process_podcast_workflow() -> None:
             r2_client=r2_client,
             gcs_bucket_name=GCS_BUCKET,
             gcs_object_name=GCS_TRIGGER_OBJECT_NAME,
-            r2_remote_key=f"{SUBDIRECTORY}/ep/{latest_episode_number}/audio{gcs_path.suffix}",
+            r2_remote_key=f"{R2_KEY_PREFIX}/ep/{latest_episode_number}/audio{gcs_path.suffix}",
             content_type=mime_type,
             public=True,
             custom_domain=R2_CUSTOM_DOMAIN,
@@ -191,7 +226,7 @@ def process_podcast_workflow() -> None:
         rss_xml_obj = rss_xml.encode("utf-8")
         r2_client.upload_file(
             file_content=rss_xml_obj,
-            remote_key=f"{SUBDIRECTORY}/feed.xml",
+            remote_key=f"{R2_KEY_PREFIX}/feed.xml",
             content_type="application/rss+xml; charset=utf-8",
             public=True,
         )

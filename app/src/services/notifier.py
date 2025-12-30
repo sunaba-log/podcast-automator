@@ -58,38 +58,44 @@ def split_message(message: str, max_length: int = DISCORD_MESSAGE_LIMIT) -> list
 class Notifier:
     """通知サービスクライアント."""
 
-    def __init__(self, discord_webhook_url: str) -> None:
-        """通知サービスクライアント.
-
-        Methods:
-        send_discord_message: Discordにメッセージを送信.
+    def __init__(self, discord_webhook_url: str | None = None) -> None:
+        """通知サービスクライアントを初期化する.
 
         Args:
-            discord_webhook_url: Discord Webhook URL
-
+            discord_webhook_url: Discord Webhook URL. 指定しない場合は通知が無効化される.
         """
         self.discord_webhook_url = discord_webhook_url
 
+        if self.discord_webhook_url is None:
+            logger.warning("Discord Webhook URLが設定されていません。通知機能はスキップされます。")
+
     def send_discord_message(self, message: str, username: str = "Podcast Automator") -> bool:
         """Discordにメッセージを送信する. 2000文字を超える場合は自動的に分割して送信する.
+
+        URLが設定されていない場合は送信処理を行わずにFalseを返す.
 
         Args:
             message: 送信するメッセージ
             username: Discordで表示するユーザー名
 
         Returns:
-            成功したかどうか
+            送信に成功した場合はTrue, 失敗またはスキップした場合はFalse
         """
+        if self.discord_webhook_url is None:
+            logger.warning("Discord Webhook URL未設定のため、メッセージ送信をスキップしました: %s...", message[:20])
+            return False
+
         try:
             messages = split_message(message)
             for msg in messages:
                 payload = {"username": username, "content": msg}
                 response = requests.post(self.discord_webhook_url, json=payload, timeout=10)
+
                 if response.status_code not in (200, 204):
-                    logger.info("Discord送信失敗: ステータス %d", response.status_code)
+                    logger.error("Discord送信失敗: ステータス %d", response.status_code)
                     return False
             return True
 
-        except Exception as e:
+        except Exception:
             logger.exception("Discordメッセージ送信エラー:")
             return False
