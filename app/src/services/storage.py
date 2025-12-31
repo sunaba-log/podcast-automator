@@ -230,16 +230,21 @@ def transfer_gcs_to_r2(
             blob.download_to_file(file_buffer)
             file_buffer.seek(0)
 
+            file_bytes = file_buffer.read()
+
             # オーディオ情報を取得
             try:
-                file_size_bytes, duration_str = get_audio_info(file_buffer=file_buffer, audio_format=file_format)
+                file_size_bytes, duration_str = get_audio_info(
+                    file_buffer=io.BytesIO(file_bytes),
+                    audio_format=file_format,
+                )
             except Exception as e:  # noqa: BLE001
                 logger.warning("Failed to get audio info")
                 file_size_bytes, duration_str = -1, "00:00:00"
 
             # R2 にファイルをアップロード
             r2_url = r2_client.upload_file(
-                file_content=file_buffer.read(),
+                file_content=file_bytes,
                 remote_key=r2_remote_key,
                 content_type=content_type,
                 public=public,

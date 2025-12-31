@@ -12,6 +12,7 @@
 .PHONY: jupyter  # launch Jupyter Lab
 
 -include .env
+export
 
 SHELL := /bin/bash
 TEST_FOLDER := tests

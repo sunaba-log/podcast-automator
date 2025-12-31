@@ -21,6 +21,7 @@
 .PHONY: terraform-clean # removes local created terraform resources
 
 -include .env
+export
 
 SHELL := /bin/bash
 
