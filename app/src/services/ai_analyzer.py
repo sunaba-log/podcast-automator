@@ -139,12 +139,13 @@ class AudioAnalyzer:
 以下はポッドキャストの議事録です。
 この内容をもとに、リスナーの興味を引く形で番組紹介文を作成してください。
 
-要件:
-- 日本語で出力すること
-- 全体はポッドキャスト配信用の文章とする
-- 以下の構成・形式を必ず守ること
+出力は必ず **JSONのみ** とし、次のスキーマに厳密に従ってください。
+{{
+  "title": "キャッチーで分かりやすいエピソードタイトル(200文字以内)",
+  "description": "以下の出力フォーマットに沿った番組紹介文。JSON文字列として有効になるよう改行は\\nで表現すること。"
+}}
 
-【出力フォーマット】
+descriptionの出力フォーマット:
 
 【エピソードタイトル】
 (キャッチーで分かりやすいタイトル、200文字以内)
@@ -184,7 +185,16 @@ sunaba log: 友人同士で週次で雑談しながら「30 days to build」プ�
         )
         if not response.text:
             raise ValueError("No response received from the model.")
-        return Summary.model_validate_json(response.text)
+        try:
+            return Summary.model_validate_json(response.text)
+        except Exception:
+            # Best-effort recovery if the model emits surrounding text.
+            text = response.text.strip()
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                return Summary.model_validate_json(text[start : end + 1])
+            raise
 
 
 # 後方互換性のための関数ラッパー
