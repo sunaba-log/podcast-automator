@@ -112,7 +112,7 @@ class AudioAnalyzer:
             file_uri=gcs_uri,
             mime_type=mime_type,
         )
-        prompt = "Generate a transcript of this conversation. Use speaker A, speaker B, etc to identify speakers."
+        prompt = "提供されたポッドキャスト配信の音声記録をもとに、議事録を作成して下さい。議論された主要なトピック、決定事項、各担当者のアクションアイテムを正確かつ簡潔に記録した、フォーマルなビジネス文書にして下さい。登場人物は小野、数森、高島です。"
 
         response = self.client.models.generate_content(
             model=model_id,
@@ -135,7 +135,43 @@ class AudioAnalyzer:
         model_id = model_id or self.DEFAULT_MODEL_ID
 
         if not prompt:
-            prompt = f"Summarize the following transcript in a concise manner in Japanese:\n\n{transcript}"
+            prompt = f"""
+以下はポッドキャストの議事録です。
+この内容をもとに、リスナーの興味を引く形で番組紹介文を作成してください。
+
+要件:
+- 日本語で出力すること
+- 全体はポッドキャスト配信用の文章とする
+- 以下の構成・形式を必ず守ること
+
+【出力フォーマット】
+
+【エピソードタイトル】
+（キャッチーで分かりやすいタイトル、200文字以内）
+
+【番組紹介】
+sunaba log: 友人同士で週次で雑談しながら「30 days to build」プロジェクトを進行する、雑談発想型プロトタイピング会議録。
+
+【目次】
+（議事録の内容から主要トピックを時系列で抽出し、以下の形式で記載）
+0:00 AAA
+0:16 BBB
+5:00 CCC
+12:54 DDD
+17:11 EEE
+
+【概要】
+全体内容を400字程度で要約してください。
+
+【関連情報】
+- sunabalog GitHubリポジトリ: https://github.com/sunaba-log/podcast-automator.git
+- 技術スタック: 今回扱われた技術スタックを箇条書きで列挙
+- キーワード: 今回扱われたキーワードを箇条書きで列挙
+
+--- 以下が議事録です ---
+{transcript}
+"""
+
         response = self.client.models.generate_content(
             model=model_id,
             contents=[prompt],
