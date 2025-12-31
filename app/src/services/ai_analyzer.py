@@ -1,3 +1,6 @@
+"""Gemini-based audio analysis and summary generation."""
+
+import logging
 import os  # noqa: D100
 from pathlib import Path
 
@@ -6,6 +9,8 @@ from google.genai.types import GenerateContentConfig, Part
 from pydantic import BaseModel, Field
 
 # 参考 https://github.com/GoogleCloudPlatform/generative-ai/blob/main/gemini/use-cases/multimodal-sentiment-analysis/intro_to_multimodal_sentiment_analysis.ipynb
+
+logger = logging.getLogger(__name__)
 
 # Gemini対応の音声フォーマットマッピング
 AUDIO_FORMAT_MAPPING = {
@@ -188,6 +193,7 @@ sunaba log: 友人同士で週次で雑談しながら「30 days to build」プ�
         try:
             return Summary.model_validate_json(response.text)
         except Exception:
+            logger.warning("Summary JSON validation failed. response.text=%s", response.text)
             # Best-effort recovery if the model emits surrounding text.
             text = response.text.strip()
             start = text.find("{")
