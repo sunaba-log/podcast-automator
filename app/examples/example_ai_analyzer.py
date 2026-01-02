@@ -2,9 +2,9 @@ import os
 
 from services import AudioAnalyzer
 
-project_id = os.environ.get("PROJECT_ID", "taka-test-481815")
+project_id = os.environ.get("PROJECT_ID", "sunabalog-dev")
 gcs_uri = os.environ.get(
-    "AUDIO_FILE_URL", "gs://sample-audio-for-sunabalog/short_dialogue.m4a"
+    "AUDIO_FILE_URL", "gs://podcast-automator-audio-input-dev/short_dialogue.m4a"
 )
 model_id = os.environ.get("AI_MODEL_ID", "gemini-2.5-flash")
 bucket_name = os.environ.get("BUCKET_NAME", "podcast")

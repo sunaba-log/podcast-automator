@@ -1,57 +1,80 @@
-#!/usr/bin/env python3
-"""
-Upload a local audio file to R2 using R2Client.upload_file
+"""Transfer an object from GCS to Cloudflare R2 via streaming.
+
 Usage:
-  PROJECT_ID=... SECRET_NAME=... ENDPOINT_URL=... BUCKET_NAME=... \
-  python upload_audio.py local/path/to/file.mp3 remote/key/in/bucket.mp3
-  python example_storage_transfer_gcs2r2.py ./data/short_dialogue.m4a test/ep/episode1.m4a
-"""
+  PROJECT_ID=... ENDPOINT_URL=... R2_BUCKET=... \
+  CLOUDFLARE_ACCESS_KEY_ID=... CLOUDFLARE_SECRET_ACCESS_KEY=... \
+  python app/examples/example_storage_transfer_gcs2r2.py <gcs_bucket> <gcs_object_name> <r2_remote_key>
+
+  uv run python examples/example_storage_transfer_gcs2r2.py podcast-automator-audio-input-dev short_dialogue.m4a test/ep/episode1.m4a
+  """
 
 import mimetypes
 import os
 import sys
 
+import dotenv
 from services import GCSClient, R2Client, transfer_gcs_to_r2
+
+dotenv.load_dotenv()
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("Usage: upload_audio.py <local_path> <remote_key>")
+    if len(sys.argv) < 4:
+        print(
+            "Usage: example_storage_transfer_gcs2r2.py "
+            "<gcs_bucket> <gcs_object_name> <r2_remote_key>"
+        )
         sys.exit(1)
 
-    local_path = sys.argv[1]
-    remote_key = sys.argv[2]
+    gcs_bucket_name = sys.argv[1]
+    gcs_object_name = sys.argv[2]
+    r2_remote_key = sys.argv[3]
 
-    project_id = os.environ.get("PROJECT_ID", "taka-test-481815")
-    secret_name = os.environ.get("SECRET_NAME", "podcast-automator")
+    project_id = os.environ.get("PROJECT_ID", "sunabalog-dev")
+    print("Project ID:", project_id)
     endpoint_url = os.environ.get(
         "ENDPOINT_URL",
         "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com",
     )
-    bucket_name = os.environ.get("BUCKET_NAME", "podcast")
+    r2_bucket = os.environ.get("R2_BUCKET", "podcast")
+    access_key = os.environ.get("CLOUDFLARE_ACCESS_KEY_ID")
+    secret_key = os.environ.get("CLOUDFLARE_SECRET_ACCESS_KEY")
+    custom_domain = os.environ.get("R2_CUSTOM_DOMAIN")
 
-    if not all([project_id, secret_name, endpoint_url, bucket_name]):
+    if not all([project_id, endpoint_url, r2_bucket, access_key, secret_key]):
         raise SystemExit(
-            "Set PROJECT_ID, SECRET_NAME, ENDPOINT_URL, BUCKET_NAME env vars"
+            "Set PROJECT_ID, ENDPOINT_URL, R2_BUCKET, "
+            "CLOUDFLARE_ACCESS_KEY_ID, CLOUDFLARE_SECRET_ACCESS_KEY"
         )
 
     r2_client = R2Client(
         project_id=project_id,
-        secret_name=secret_name,
         endpoint_url=endpoint_url,
-        bucket_name=bucket_name,
+        bucket_name=r2_bucket,
+        access_key=access_key,
+        secret_key=secret_key,
     )
     gcs_client = GCSClient(project_id=project_id)
 
-    content_type = mimetypes.guess_type(local_path)[0] or "audio/mpeg"
+    content_type = mimetypes.guess_type(gcs_object_name)[0] or "audio/mpeg"
+    print("Content type:", content_type)
+    # Fail fast if the source object is missing or not accessible
+    blob = gcs_client.client.bucket(gcs_bucket_name).blob(gcs_object_name)
+    if not blob.exists():
+        raise SystemExit(
+            f"GCS object not found or not accessible: gs://{gcs_bucket_name}/{gcs_object_name}"
+        )
+
+
     url, size, duration = transfer_gcs_to_r2(
         gcs_client=gcs_client,
         r2_client=r2_client,
-        gcs_bucket_name="sample-audio-for-sunabalog",
-        gcs_object_name="short_dialogue.m4a",
-        r2_remote_key=remote_key,
+        gcs_bucket_name=gcs_bucket_name,
+        gcs_object_name=gcs_object_name,
+        r2_remote_key=r2_remote_key,
         content_type=content_type,
         public=True,
+        custom_domain=custom_domain,
     )
     print("Uploaded to:", url, f"Size: {size} bytes", f"Duration: {duration} sec")
 

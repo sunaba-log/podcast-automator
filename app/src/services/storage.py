@@ -27,7 +27,7 @@ class R2Client:
         project_id: str,
         endpoint_url: str,
         bucket_name: str,
-        secret_name: str = "",
+        secret_name: str | None = None,
         access_key: str | None = None,
         secret_key: str | None = None,
     ) -> None:
@@ -52,8 +52,11 @@ class R2Client:
             region_name="auto",
         )
 
-    def _get_credentials(self, secret_name: str) -> tuple:
+    def _get_credentials(self, secret_name: str | None) -> tuple:
         """Secret Manager から R2 認証情報を取得."""
+        if secret_name is None:
+            raise ValueError("secret_name is required to get R2 credentials from Secret Manager.")
+
         try:
             client = secretmanager_v1.SecretManagerServiceClient()
             secret_path = client.secret_version_path(self.project_id, secret_name, "latest")

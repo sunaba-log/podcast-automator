@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 from services import R2Client
 
-PROJECT_ID = "taka-test-481815"  # ※それそれのproject_idを確認してください。
+PROJECT_ID = "sunabalog-dev"  # ※それそれのproject_idを確認してください。
 SECRET_ID = "sunabalog-r2"  # ※本記事では2で作成した'test-secret')
 VERSION = "latest"  # ※私が作成した場合はデフォルトで`1`になってました。`latest`でも取得できました。
 ENDPOINT_URL = "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com"

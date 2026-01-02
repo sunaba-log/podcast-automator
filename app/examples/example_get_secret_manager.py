@@ -9,7 +9,7 @@ from google.cloud import secretmanager_v1
 
 # Create the Secret Manager client.
 client = secretmanager_v1.SecretManagerServiceClient()
-PROJECT_ID = "taka-test-481815"  # ※それそれのproject_idを確認してください。
+PROJECT_ID = "sunabalog-dev"  # ※それそれのproject_idを確認してください。
 SECRET_ID = "sunabalog-r2"  # ※本記事では2で作成した'test-secret')
 VERSION = "latest"  # ※私が作成した場合はデフォルトで`1`になってました。`latest`でも取得できました。
 
