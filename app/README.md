@@ -46,17 +46,20 @@ GCS (Google Cloud Storage) にアップロードされた音声ファイルを�
 
 実行時に以下の環境変数を設定します。Cloud Run Job 実行時の `--set-env-vars` またはローカル実行時の `.env` で指定してください。
 
-| 変数名                    | デフォルト値 / 例                      | 説明                                    |
-| :------------------------ | :------------------------------------- | :-------------------------------------- |
-| `PROJECT_ID`              | `taka-test-xxxx`                       | GCP プロジェクト ID                     |
-| `GCS_BUCKET`              | **(必須)** `bucket`                    | 処理対象の音声ファイルのバケット名      |
-| `GCS_TRIGGER_OBJECT_NAME` | **(必須)** `file.m4a`                  | 処理対象の音声ファイルのオブジェクト名  |
-| `SECRET_NAME`             | `sunabalog-r2`                         | Secret Manager のシークレット名         |
-| `R2_ENDPOINT_URL`         | `https://xxx.r2.cloudflarestorage.com` | Cloudflare R2 のエンドポイント          |
-| `R2_BUCKET`               | `podcast`                              | R2 のバケット名                         |
-| `SUBDIRECTORY`            | `test`                                 | R2 内の保存先サブディレクトリ           |
-| `AI_MODEL_ID`             | `gemini-2.5-flash`                     | 使用する Vertex AI (Gemini) のモデル ID |
-| `R2_CUSTOM_DOMAIN`        | `podcast.sunabalog.com`                | 配信用のカスタムドメイン                |
+| 変数名                         | デフォルト値 / 例                  | 説明                                                                                                     |
+| :----------------------------- | :--------------------------------- | :------------------------------------------------------------------------------------------------------- |
+| `PROJECT_ID`                   | `taka-test-xxxx`                   | GCP プロジェクト ID                                                                                      |
+| `GCS_BUCKET`                   | **(必須)** `bucket`                | 処理対象の音声ファイルのバケット名                                                                       |
+| `GCS_TRIGGER_OBJECT_NAME`      | **(必須)** `file.m4a`              | 処理対象の音声ファイルのオブジェクト名                                                                   |
+| `SECRET_NAME`                  | `sunabalog-r2`                     | Secret Manager のシークレット名                                                                          |
+| `CLOUDFLARE_ACCOUNT_ID`        | `8ed20f6872cea7c9219d68bfcf5f98ae` | Cloudflare R2 のアカウント ID R2 Endpoint URL:`https://<CLOUDFLARE_ACCOUNT_ID>.r2.cloudflarestorage.com` |
+| `CLOUDFLARE_ACCESS_KEY_ID`     |                                    | `SECRET_NAME` が未設定の場合は必須                                                                       |
+| `CLOUDFLARE_SECRET_ACCESS_KEY` |                                    | `SECRET_NAME` が未設定の場合は必須                                                                       |
+| `DISCORD_WEBHOOK_INFO_URL`     |                                    | Discord 通知用のウェブフック URL                                                                         |
+| `R2_BUCKET`                    | `podcast`                          | R2 のバケット名                                                                                          |
+| `R2_KEY_PREFIX`                | `test`                             | R2 内の保存先サブディレクトリ                                                                            |
+| `AI_MODEL_ID`                  | `gemini-2.5-flash`                 | 使用する Vertex AI (Gemini) のモデル ID                                                                  |
+| `R2_CUSTOM_DOMAIN`             | `podcast.sunabalog.com`            | 配信用のカスタムドメイン                                                                                 |
 
 ## 🔐 シークレット管理 (Google Secret Manager)
 
@@ -168,7 +171,7 @@ GCS_TRIGGER_OBJECT_NAME=<処理対象の音声ファイルのオブジェクト�
 R2_ENDPOINT_URL=<Cloudflare R2のURL, default:"https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com">
 R2_BUCKET_=<cloudflare R2のバケット名, default: "podcast">
 SUBDIRECTORY=<R2内の保存先フォルダ, default: "test">
-AUDIO_FILE_URL=<GCSにアップロードされたmp3,m4aファイルパス, default: "gs://sample-audio-for-sunabalog/
+AUDIO_FILE_URL=<GCSにアップロードされたmp3,m4aファイルパス, default: "gs://podcast-automator-audio-input-dev/
 AI_MODEL_ID=<GeminiモデルID, default:"gemini-2.5-flash">
 R2_CUSTOM_DOMAIN=<R2のカスタムドメイン, default: "podcast.sunabalog.com">
 ```
@@ -193,16 +196,16 @@ docker build -t podcast-automator-job:latest .
 
 ```sh
 docker run -v ~/.config/gcloud/application_default_credentials.json:/tmp/keys/adc.json:ro \
--e PROJECT_ID=taka-test-481815 \
--e SECRET_NAME=podcast-automator \
--e GCS_BUCKET=sample-audio-for-sunabalog  \
+-e PROJECT_ID=sunabalog-dev \
+-e GCS_BUCKET=podcast-automator-audio-input-dev  \
 -e GCS_TRIGGER_OBJECT_NAME=short_dialogue.m4a \
--e R2_ENDPOINT_URL=https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com \
+-e SECRET_NAME=podcast-automator \
+-e CLOUDFLARE_ACCOUNT_ID=8ed20f6872cea7c9219d68bfcf5f98ae \
 -e R2_BUCKET=podcast \
--e SUBDIRECTORY=test \
--e AI_MODEL_ID=gemini-2.5-flash \
+-e R2_KEY_PREFIX=test \
 -e R2_CUSTOM_DOMAIN=podcast.sunabalog.com  \
+-e AI_MODEL_ID=gemini-2.5-flash \
 -e GOOGLE_APPLICATION_CREDENTIALS=/tmp/keys/adc.json \
--e GOOGLE_CLOUD_PROJECT=taka-test-481815 \
+-e GOOGLE_CLOUD_PROJECT=sunabalog-dev \
 podcast-automator-job:latest
 ```

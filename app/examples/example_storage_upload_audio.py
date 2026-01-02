@@ -22,7 +22,7 @@ def main():
     local_path = sys.argv[1]
     remote_key = sys.argv[2]
 
-    project_id = os.environ.get("PROJECT_ID", "taka-test-481815")
+    project_id = os.environ.get("PROJECT_ID", "sunabalog-dev")
     secret_name = os.environ.get("SECRET_NAME", "sunabalog-r2")
     endpoint_url = os.environ.get(
         "ENDPOINT_URL",

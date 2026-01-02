@@ -4,13 +4,13 @@ R2 からファイルをダウンロードする簡易スクリプト。
 
 使い方:
   PROJECT_ID=... SECRET_NAME=... ENDPOINT_URL=... BUCKET_NAME=... \
-  python app/podcast-processor/scripts/download_r2.py remote/key/path.mp3 --out local.mp3
+  python app/examples/example_storage_download_from_gcs.py 20251231_sunabalog_recording.m4a --out 20251231_sunabalog_recording.m4a
 """
 
 import argparse
 import os
 
-from services import R2Client
+from services import GCSClient
 
 
 def main():
@@ -20,29 +20,18 @@ def main():
     args = parser.parse_args()
 
     project_id = os.environ.get("PROJECT_ID", "sunabalog-dev")
-    secret_name = os.environ.get("SECRET_NAME", "sunabalog-r2")
-    endpoint_url = os.environ.get(
-        "ENDPOINT_URL",
-        "https://8ed20f6872cea7c9219d68bfcf5f98ae.r2.cloudflarestorage.com",
-    )
-    bucket_name = os.environ.get("BUCKET_NAME", "podcast")
+    bucket_name = os.environ.get("BUCKET_NAME", "podcast-automator-audio-input-dev")
 
-    if not all([project_id, secret_name, endpoint_url, bucket_name]):
-        raise SystemExit("環境変数 PROJECT_ID, SECRET_NAME, ENDPOINT_URL, BUCKET_NAME を設定してください。")
+    if not all([project_id, bucket_name]):
+        raise SystemExit("環境変数 PROJECT_ID, BUCKET_NAME を設定してください。")
 
-    client = R2Client(
+    client = GCSClient(
         project_id=project_id,
-        secret_name=secret_name,
-        endpoint_url=endpoint_url,
-        bucket_name=bucket_name,
     )
 
     print(f"Downloading {args.remote_key} from bucket {bucket_name} ...")
-    data = client.download_file(args.remote_key)
-
     out_path = args.out or os.path.basename(args.remote_key)
-    with open(out_path, "wb") as f:
-        f.write(data)
+    client.download_blob(bucket_name=bucket_name, object_name=args.remote_key, destination_file_path=out_path)
 
     print(f"Saved to {out_path}")
 

@@ -23,6 +23,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  "dotenv>=0.9.9",
   "pytest-cov>=4.1.0",
   "pytest>=7.4.3",
   "ruff>=0.1.6",
