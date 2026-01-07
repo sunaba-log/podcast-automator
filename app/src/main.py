@@ -215,11 +215,15 @@ def process_podcast_workflow() -> None:
             "title": summary.title,
             "description": summary.description,
             "audio_url": public_url,
-            "duration": duration_str,
-            "creator": "Sunaba Log",
             "file_size": file_size_bytes,
+            "itunes_duration": duration_str,
+            "creator": "sunabalog",
             "mime_type": mime_type,
-            "episode_type": "full",
+            "itunes_summary": summary.description,
+            "itunes_explicit": "no",
+            "itunes_season": 1,
+            "itunes_episode_number": latest_episode_number,
+            "itunes_episode_type": "full",
         }
         rss_manager.add_episode(new_episode_data)
         rss_xml = rss_manager.get_rss_xml()
