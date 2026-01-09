@@ -93,11 +93,5 @@ variable "r2_key_prefix" {
 
 variable "r2_subdomain" {
   type        = string
-  description = "Subdomain part for the custom domain (e.g., dev.podcast-test)."
-}
-
-variable "r2_retention_days" {
-  type        = number
-  description = "Days to retain R2 objects before expiration (dev only)."
-  default     = 3
+  description = "Subdomain part for the custom domain (e.g., dev.podcast)."
 }
