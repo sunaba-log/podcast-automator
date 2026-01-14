@@ -1,0 +1,12 @@
+{
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.pylance": "explicit",
+      "source.organizeImports": "explicit",
+      "source.unusedImports": "explicit"
+    }
+  },
+  "cSpell.enabled": false
+}

@@ -1,284 +1,127 @@
 # podcast-automator
 
-GCP (Cloud Run Jobs) と Cloudflare R2 を使用したポッドキャスト自動処理システムの実装テンプレートです。
+このリポジトリは、GCP 上で **GCS への音声アップロード → Eventarc → Workflows → Cloud Run Jobs** の起動までを Terraform で構成するためのコードと、
+Cloud Run Jobs で実行される **テスト用の簡易 Python アプリ**（GCS → Cloudflare R2 転送と Discord 通知のみ）を含みます。
 
-## ディレクトリ構成
+**重要**: 現時点の `app/src/main.py` はテスト用に適当に作ったものです。
+音声処理や RSS 更新などは実装しておらず、GCS から R2 へ転送するだけです。
+実装済みの構成は `ARCHITECTURE.md` を参照してください。
+
+## 構成
 
 ```
 .
-├── app/                     # アプリケーションコード (Cloud Run Jobs用)
-│   ├── controller/          # ジョブ制御コンポーネント
-│   │   ├── main.py          # ジョブコントローラー
-│   │   ├── Dockerfile       # コンテナイメージ定義
-│   │   └── requirements.txt  # Python 依存パッケージ
-│   │
-│   ├── fetch-job/           # ポッドキャスト取得ジョブ
-│   │   ├── main.py          # 取得処理
-│   │   ├── Dockerfile
-│   │   ├── requirements.txt
-│   │   └── tests/           # ユニットテスト
-│   │
-│   ├── process-job/         # ポッドキャスト処理ジョブ (Vertex AI)
-│   │   ├── main.py          # 処理ロジック (Gemini 1.5 Pro)
-│   │   ├── Dockerfile
-│   │   ├── requirements.txt
-│   │   └── tests/           # ユニットテスト
-│   │
-│   ├── upload-job/          # ファイルアップロードジョブ
-│   │   ├── main.py          # R2 アップロード処理
-│   │   ├── Dockerfile
-│   │   └── requirements.txt
-│   │
-│   ├── notify-job/          # 通知ジョブ
-│   │   ├── main.py          # Discord/メール通知
-│   │   ├── Dockerfile
-│   │   └── requirements.txt
-│   │
-│   └── shared/              # 共有ユーティリティ
-│       ├── __init__.py
-│       ├── ai.py            # Vertex AI API 呼び出し
-│       ├── cdn.py           # Cloudflare R2 (S3互換) 操作
-│       ├── config.py        # 設定管理
-│       ├── logger.py        # ロギング
-│       ├── models.py        # データモデル
-│       ├── notifier.py      # 通知機能
-│       ├── storage.py       # GCS 操作
-│       ├── pyproject.toml   # Python パッケージ定義
-│       └── README.md
-│
-├── terraform/               # インフラ定義 (IaC)
-│   ├── main.tf              # プロバイダ・モジュール呼び出し
-│   ├── variables.tf         # 全体変数定義
-│   ├── outputs.tf           # 出力値定義
-│   ├── backend.tf           # tfstate保存先設定
-│   ├── terraform.tfvars.example
-│   └── modules/             # 再利用可能なTerraformモジュール
-│       ├── core/            # API有効化、Artifact Registry
-│       ├── storage/         # GCS バケット管理
-│       ├── compute/         # Cloud Run Jobs & Service Account
-│       ├── trigger/         # Eventarc & Pub/Sub
-│       ├── ai/              # Vertex AI IAM
-│       └── secrets/         # Secret Manager
-│
-├── pyproject.toml           # プロジェクト全体の Python 設定
-├── pytest.ini               # pytest 設定
-├── Makefile                 # ビルド・デプロイ用コマンド
-├── DEPLOYMENT.md            # デプロイメント手順
-├── JOB_ARCHITECTURE.md      # ジョブアーキテクチャ設計
-├── DEVCONTAINER_QUICKSTART.md # Dev Container クイックスタート
-└── README.md                # このファイル
+├── app/                         # Python アプリ (Cloud Run Job 用)
+│   ├── src/main.py              # GCS → R2 転送 + Discord 通知
+│   ├── tests/                   # pytest
+│   ├── pyproject.toml           # Python 3.12 / ruff / pytest 設定
+│   └── Dockerfile               # Cloud Run Job 用イメージ
+├── infrastructure/              # Terraform (GCP リソース)
+│   ├── *.tf                     # バケット, Eventarc, Workflows, IAM 等
+│   ├── environments/            # dev/prod の backend/variables
+│   └── modules/                 # Artifact Registry / Cloud Run Job modules
+├── .github/workflows/           # CI/CD
+├── .devcontainer/               # Dev Container 設定 (注意事項あり)
 ```
 
-## システム構成
+## 現状のアプリ挙動
 
-```
-配信者
-  ↓ (mp3)
-GCS Input Bucket
-  ↓ (Eventarc)
-Cloud Run Job (controller)
-  ├── fetch-job   → ポッドキャストメタデータ取得
-  ├── process-job → Vertex AI (Gemini 1.5 Pro) で処理
-  ├── upload-job  → Cloudflare R2 にアップロード
-  └── notify-job  → Discord/Email 通知
-  ↓
-Cloudflare R2 (CDN)
-  ↓
-Podcast RSS フィード配信
-```
+`app/src/main.py` は次の動作のみを行います。
 
-## ワークフロー
+- `DISCORD_WEBHOOK_INFO_URL` があれば、開始・終了メッセージを送信
+- `GCS_TRIGGER_OBJECT_NAME` で指定された GCS オブジェクトを Cloudflare R2 に転送
+- 失敗時は `DISCORD_WEBHOOK_ERROR_URL` があればエラーメッセージを送信
 
-1. **配信者**が音声ファイル (.mp3) を **GCS Input Bucket** にアップロード
+## ローカル開発 (app)
 
-2. **Eventarc** が Object Finalize イベントを検知し、**controller** を起動
-
-3. **controller** が各ジョブを順序管理：
-
-   - **fetch-job**: ポッドキャスト情報を GCS から取得
-   
-   - **process-job**: 以下の処理を実行
-     - GCS から音声ファイルをダウンロード
-     - **Vertex AI (Gemini 1.5 Pro)** に送信してタイトル・概要・議事録を生成
-     - メタデータを JSON で保存
-   
-   - **upload-job**: 処理済みファイルを **Cloudflare R2** にアップロード
-   
-   - **notify-job**: 処理完了を **Discord/Email** で通知
-
-4. **Podcast アプリ**が R2 の RSS フィード経由で配信を開始
-
-## クイックスタート
-
-### 前提条件
-
-- Docker & Docker Compose
-- Python 3.11+
-- GCP アカウント & `gcloud` CLI
-- Terraform 1.6+
-
-### 1. Dev Container での開発環境構築
+前提: Python 3.12+ と `uv` が必要です（`app/pyproject.toml` で指定）。
 
 ```bash
-# VS Code で Dev Container を再度開く
-# または以下を手動で実行
-
-bash .devcontainer/post-create.sh
+cd app
+make install
+make lint
+make test
 ```
 
-### 2. 各ジョブのコンテナイメージをビルド
+Docker ビルド:
 
 ```bash
-# Make コマンド使用（推奨）
-make build
-
-# または手動でビルド
-docker build -t podcast-controller:latest app/controller/
-docker build -t podcast-fetch-job:latest app/fetch-job/
-docker build -t podcast-process-job:latest app/process-job/
-docker build -t podcast-upload-job:latest app/upload-job/
-docker build -t podcast-notify-job:latest app/notify-job/
+make docker-build
 ```
 
-### 3. ローカルテスト
+## インフラ (Terraform)
+
+Terraform は Docker コンテナで実行する前提です。`Makefile` が用意されています。
+`.env.sample` に `GOOGLE_APPLICATION_CREDENTIALS` と Cloudflare 認証情報の例があります。
+ローカルからデプロイする場合は、サービスアカウントの JSON を配置し、そのパスを `.env` の `GOOGLE_APPLICATION_CREDENTIALS` に設定してください。
+あわせて Cloudflare の認証情報（`CLOUDFLARE_ACCESS_KEY_ID` / `CLOUDFLARE_SECRET_ACCESS_KEY` / `CLOUDFLARE_API_TOKEN`）も `.env` に設定してください。
+
+### デプロイ手段
+
+- GitHub Actions の CD (`.github/workflows/cd.yml`) からデプロイ
+  - `develop` / `main` への push で自動実行
+  - `workflow_dispatch` でブランチ指定デプロイ
+- ローカルから `make terraform-deploy-{dev,prod}` でデプロイ
+  - ローカル実行時は、サービスアカウントの JSON を配置し、そのパスを `.env` の `GOOGLE_APPLICATION_CREDENTIALS` に設定してください
+  - あわせて Cloudflare の認証情報も `.env` に設定してください
 
 ```bash
-# 全テストを実行
-pytest app/ -v --cov=app/shared
-
-# 特定ジョブのみテスト
-pytest app/fetch-job/tests/ -v
-pytest app/process-job/tests/ -v
-
-# コード整形
-black app/
-ruff check app/ --fix
+# 例: dev 環境のデプロイ
+make terraform-deploy-dev DEPLOY_COMMAND_EXTENSION="-auto-approve"
 ```
 
-### 4. GCP へのデプロイ
+環境別設定は `infrastructure/environments/{dev,prod}` にあります。
 
-詳細は [DEPLOYMENT.md](./DEPLOYMENT.md) を参照：
+## GitHub Actions
 
-```bash
-# Terraform 初期化
-cd terraform
-terraform init
+- `CI` (`.github/workflows/ci.yml`)
+  - app: uv + ruff + pytest
+  - infrastructure: Terraform fmt チェック（`fmt -check`）+ validate
+- `CD` (`.github/workflows/cd.yml`)
+  - `develop` と `main` で自動デプロイ
+  - `workflow_dispatch` でブランチ指定デプロイ
 
-# デプロイ前確認
-terraform plan -var-file="terraform.tfvars"
+## ブランチルール
 
-# デプロイ実行
-terraform apply -var-file="terraform.tfvars"
+### マージフロー
+
+- `main` <- `release/YYYYMMDD`, `hotfix/*`
+- `release/YYYYMMDD` <- `develop`
+- `develop` <- `feature/XXX`, `epic/YYY`
+- `epic/YYY` <- `feature/ZZZ`
+
+`XXX` と `YYY` は issue 番号、`ZZZ` は sub-issue 番号です。
+
+#### 補足
+
+- `main` への PR は `release/YYYYMMDD` または `hotfix/*` からのみ許可する
+- `develop` からその日の日付で `release/YYYYMMDD` を作成し、`main` へ PR する
+- `develop` から各 issue の `epic/YYY` または `feature/XXX` / `fix/XXX` を作成する
+  - sub-issue がある issue は `epic/YYY`（親）
+  - sub-issue がない issue は `feature/XXX` または `fix/XXX`（単独）
+- `epic/YYY` から sub-issue に対応する `feature/ZZZ` を作成し、`epic/YYY` へ PR する
+
+### 運用ルール
+
+- PR 必須（直 push 禁止）
+- issue / sub-issue と PR は 1 対 1
+- `main` へのマージはレビュー必須
+
+## 環境変数 (app)
+
+`app/.env.sample` に記載されています。
+
+```
+GCS_BUCKET=your-input-bucket-name
+GCS_TRIGGER_OBJECT_NAME=path/to/input/file.mp3
+DISCORD_WEBHOOK_INFO_URL=https://discord.example/webhook/info
+DISCORD_WEBHOOK_ERROR_URL=https://discord.example/webhook/error
+R2_BUCKET=your-r2-bucket-name
+CLOUDFLARE_ACCOUNT_ID=your-cloudflare-account-id
+CLOUDFLARE_ACCESS_KEY_ID=your-cloudflare-access-key-id
+CLOUDFLARE_SECRET_ACCESS_KEY=your-cloudflare-secret-access-key
 ```
 
-## 機能モジュール
+## Dev Container について
 
-### app/shared/ - 共有ユーティリティ
-
-- **config.py** - 環境変数・設定管理
-- **logger.py** - 構造化ログ & Cloud Logging 連携
-- **storage.py** - GCS ファイルダウンロード/アップロード
-- **cdn.py** - Cloudflare R2 (S3 互換) 操作
-- **ai.py** - Vertex AI (Gemini 1.5 Pro) API 呼び出し
-- **models.py** - データモデル (Podcast, Episode など)
-- **notifier.py** - Discord/Email 通知
-
-### app/*/main.py - 各ジョブの処理
-
-- **controller/main.py** - ジョブ制御・オーケストレーション
-- **fetch-job/main.py** - ポッドキャスト情報取得
-- **process-job/main.py** - AI による処理（テキスト生成）
-- **upload-job/main.py** - R2 へのアップロード
-- **notify-job/main.py** - 通知送信
-
-### terraform/modules/
-
-- **core** - API 有効化、Artifact Registry 作成
-- **storage** - GCS バケット、ライフサイクル設定
-- **compute** - Cloud Run Jobs & Service Account
-- **trigger** - Eventarc トリガー、Pub/Sub トピック
-- **ai** - Vertex AI IAM 権限
-- **secrets** - Secret Manager リソース定義
-
-## 環境変数・シークレット
-
-### アプリケーション (Cloud Run Jobs)
-
-Environment Variables:
-
-- `ENVIRONMENT` - dev / staging / prod
-- `PROJECT_ID` - GCP Project ID
-- `GCP_REGION` - GCP リージョン (デフォルト: asia-northeast1)
-- `INPUT_BUCKET` - 入力 GCS バケット名
-- `OUTPUT_BUCKET` - 出力 GCS バケット名
-- `LOG_LEVEL` - ログレベル (DEBUG/INFO/WARNING/ERROR)
-
-Secret Manager (GCP):
-
-- `r2-access-key` - Cloudflare R2 アクセスキー
-- `r2-secret-key` - Cloudflare R2 シークレットキー
-- `discord-webhook-url` - Discord Webhook URL
-- `vertex-ai-project-id` - Vertex AI プロジェクト ID
-
-### Terraform
-
-`terraform/terraform.tfvars` (例):
-
-```hcl
-project_id           = "your-gcp-project"
-region               = "asia-northeast1"
-environment          = "dev"
-input_bucket_name    = "podcast-input-dev"
-output_bucket_name   = "podcast-output-dev"
-artifact_registry    = "gcr.io/your-project"
-cloudflare_api_token = "your-api-token"
-```
-
-## セキュリティに関する注意
-
-- **本番環境では必須：**
-  - `terraform.tfvars` を `.gitignore` に追加（シークレット未含）
-  - シークレット値を Secret Manager で管理
-  - Service Account に最小限の IAM ロールを付与
-  - 監査ログを Cloud Logging で監視
-  - tfstate をリモート (GCS) に保存し、リクエスト検証を有効化
-
-## 本番環境への準備
-
-### 必須実装項目
-
-- ✅ エラーハンドリング・リトライ戦略の強化
-- ✅ Cloud Logging による構造化ログ
-- ✅ Cloud Trace・Cloud Profiler 統合
-- ✅ ユニットテスト・統合テスト
-- ✅ Cloud Monitoring・Cloud Alerting 設定
-- ✅ CI/CD パイプライン (Cloud Build)
-- ✅ セキュリティ監査・コンプライアンスチェック
-
-### セキュリティベストプラクティス
-
-- **シークレット管理**: Secret Manager 使用、tfstate は暗号化・リモート保存
-- **IAM**: Service Account に最小限の権限付与、定期的な監査
-- **ネットワーク**: VPC・Private IP 使用、アクセス制御の厳格化
-- **暗号化**: 保存時・転送時とも暗号化を有効化
-- **監査ログ**: Cloud Audit Logs による全操作の記録
-
-## ドキュメント
-
-- [JOB_ARCHITECTURE.md](./JOB_ARCHITECTURE.md) - ジョブアーキテクチャの詳細設計
-- [DEPLOYMENT.md](./DEPLOYMENT.md) - GCP へのデプロイメント手順
-- [DEVCONTAINER_QUICKSTART.md](./DEVCONTAINER_QUICKSTART.md) - Dev Container セットアップ
-- [app/shared/README.md](./app/shared/README.md) - 共有モジュール API ドキュメント
-
-## 参考リソース
-
-- [Cloud Run Jobs ドキュメント](https://cloud.google.com/run/docs/quickstarts/jobs)
-- [Eventarc ドキュメント](https://cloud.google.com/eventarc/docs)
-- [Vertex AI API リファレンス](https://cloud.google.com/python/docs/reference/aiplatform/latest)
-- [Terraform Google Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs)
-- [pytest ドキュメント](https://docs.pytest.org/)
-- [Docker ドキュメント](https://docs.docker.com/)
-
-## ライセンス
-
-MIT (LICENSE ファイル参照)
+手をつけていないため使うには要修正
