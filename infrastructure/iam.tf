@@ -84,7 +84,10 @@ resource "google_project_iam_member" "eventarc_service_agent" {
 resource "google_storage_bucket_iam_member" "aiplatform_gcs_read" {
   bucket = google_storage_bucket.input.name
   role   = "roles/storage.objectViewer"
-  member = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-aiplatform.iam.gserviceaccount.com"
+  member = "serviceAccount:${google_project_service_identity.aiplatform.email}"
 
-  depends_on = [google_project_service.required]
+  depends_on = [
+    google_project_service.required,
+    google_project_service_identity.aiplatform,
+  ]
 }
