@@ -91,3 +91,14 @@ resource "google_storage_bucket_iam_member" "aiplatform_gcs_read" {
     google_project_service_identity.aiplatform,
   ]
 }
+
+resource "google_project_iam_member" "aiplatform_service_agent_role" {
+  project = var.project_id
+  role    = "roles/aiplatform.serviceAgent"
+  member  = "serviceAccount:${google_project_service_identity.aiplatform.email}"
+
+  depends_on = [
+    google_project_service.required,
+    google_project_service_identity.aiplatform,
+  ]
+}
