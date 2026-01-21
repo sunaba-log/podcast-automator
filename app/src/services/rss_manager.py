@@ -643,12 +643,12 @@ class PodcastRssManager:
         category: str,
         cover_url: str,
         owner_name: str,
-        rss_link: str,
         owner_email: str = "",
         author: str = "",
         copyright_text: str = "",
         show_link: str = "",
         podcast_type: str = "episodic",
+        rss_link: str = "",
     ) -> str:
         """新しいポッドキャストRSSフィードを生成.
 
