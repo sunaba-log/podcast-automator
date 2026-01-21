@@ -643,12 +643,12 @@ class PodcastRssManager:
         category: str,
         cover_url: str,
         owner_name: str,
-        owner_email: str = "",
+        owner_email: str = "admin@sunabalog.com",
         author: str = "",
         copyright_text: str = "",
-        show_link: str = "",
+        show_link: str = "https://sunabalog.com",
         podcast_type: str = "episodic",
-        rss_link: str = "",
+        rss_link: str = "https://podcast.sunabalog.com/feed.xml",
     ) -> str:
         """新しいポッドキャストRSSフィードを生成.
 
@@ -683,12 +683,12 @@ class PodcastRssManager:
             # ウェブサイトのHTML版へのリンク(alternate)
             self.fg.link(href=show_link, rel="alternate", type="text/html")
         # rss_linkが指定されていればatom:linkも設定
-        if rss_link != "":
-            self.fg.id(rss_link)  # フィードの一意なID
-            # Atomフィード自体へのリンク(self)
-            self.fg.link(href=rss_link, rel="self", type="application/rss+xml")
-            # フィードをファイルに出力
-            # self.fg.atom_file("atom.xml")
+        # if rss_link != "":
+        self.fg.id(rss_link)  # フィードの一意なID
+        # Atomフィード自体へのリンク(self)
+        self.fg.link(href=rss_link, rel="self", type="application/rss+xml")
+        # フィードをファイルに出力
+        # self.fg.atom_file("atom.xml")
         self.fg.description(description)  # 番組説明
         self.fg.language(language)
 
