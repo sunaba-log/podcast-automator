@@ -27,7 +27,7 @@ class ChannelData(TypedDict, total=False):
         itunes_author: iTunes著作者
         itunes_category: iTunesカテゴリ
         itunes_image: iTunesカバー画像URL
-        itunes_explicit: iTunes明示的表示("yes" or "no")
+        itunes_explicit: iTunes明示的表示("yes", "no", "clean")
         itunes_owner_name: iTunesオーナー名
         itunes_owner_email: iTunesオーナーメールアドレス
         itunes_summary: iTunesサマリー
@@ -66,7 +66,7 @@ class EpisodeData(TypedDict, total=False):
         creator: エピソード作成者
         pub_date: 公開日時
         itunes_summary: iTunesサマリー
-        itunes_explicit: iTunes明示的表示("yes" or "no")
+        itunes_explicit: iTunes明示的表示("yes", "no", "clean")
         itunes_image: iTunesエピソード画像URL
         itunes_season: iTunesシーズン番号
         itunes_episode_number: iTunesエピソード番号
@@ -234,10 +234,10 @@ class PodcastRssManager:
         rss_link = self.podcast_basic_info.get("atom_link", "")
         if rss_link != "":
             # フィードの一意なID
-            self.fg.id(rss_link)
+            # self.fg.id(rss_link)
             # Atomフィード自体へのリンク(self)
-            self.fg.link(href=rss_link, rel="self", type="application/atom+xml")
-            self.fg.atom_file("atom.xml")
+            self.fg.link(href=rss_link, rel="self", type="application/rss+xml")
+            # self.fg.atom_file("atom.xml")
 
         # オーナー情報を設定
         if "itunes_owner_name" in self.podcast_basic_info:
@@ -332,6 +332,12 @@ class PodcastRssManager:
         # どんなチャンネル情報があるかログ出力
         logger.info("Feed info keys: %s", list(feed.keys()))
         logger.info("Feed info: %s", list(feed_info))
+        # itunes owner情報を'publisher_detail'または'author_detail'から抽出
+        itunes_owner_name = feed_info.get("publisher_detail", feed_info.get("author_detail", {})).get("name", "")
+        itunes_owner_email = feed_info.get("publisher_detail", feed_info.get("author_detail", {})).get("email", "")
+        if itunes_owner_name == "" or itunes_owner_email == "":
+            # nameかemailのどちらかが空はエラー
+            raise NotImplementedError("itunes_owner_name or itunes_owner_email is not empty")
         self._set_podcast_basic_info(
             title=feed_info.get("title", "sunabalog"),
             description=feed_info.get("summary", feed_info.get("subtitle", "30 Days to Build (or Not)")),
@@ -346,8 +352,8 @@ class PodcastRssManager:
             ),
             itunes_image=(feed_info["image"]["href"] if "image" in feed_info and "href" in feed_info["image"] else ""),
             itunes_explicit="no",
-            itunes_owner_name=feed_info.get("author_detail", {}).get("name", ""),
-            itunes_owner_email=feed_info.get("author_detail", {}).get("email", ""),
+            itunes_owner_name=itunes_owner_name,
+            itunes_owner_email=itunes_owner_email,
             itunes_summary=feed_info.get("summary", feed_info.get("subtitle", "30 Days to Build (or Not)")),
             itunes_type="episodic",
         )
@@ -401,7 +407,12 @@ class PodcastRssManager:
 
         # iTunes エピソードタイプ
         entry_episode_type = entry.get("itunes_episodetype", "full")
-
+        entry_episode_number = entry.get("itunes_episode", None)
+        entry_episode_season = entry.get("itunes_season", None)
+        entry_episode_explicit = entry.get("itunes_explicit", "no")
+        # エピソードカバー画像URL
+        entry_itunes_image = entry.get("image", {}).get("href", None) if "image" in entry else None
+        print(entry_itunes_image)
         # エピソードデータを構築
         if entry_audio_url:
             episode_data: EpisodeData = {
@@ -422,7 +433,14 @@ class PodcastRssManager:
                 episode_data["pub_date"] = entry_pubdate
             if entry_episode_type:
                 episode_data["itunes_episodetype"] = entry_episode_type
-
+            if entry_itunes_image:
+                episode_data["itunes_image"] = entry_itunes_image
+            if entry_episode_season:
+                episode_data["itunes_season"] = entry_episode_season
+            if entry_episode_number:
+                episode_data["itunes_episode_number"] = entry_episode_number
+            if entry_episode_explicit:
+                episode_data["itunes_explicit"] = entry_episode_explicit
         return episode_data
 
     def get_total_episodes(self) -> int:
@@ -435,32 +453,23 @@ class PodcastRssManager:
         Returns:
             最新エピソードの情報を含む辞書、またはエピソードが存在しない場合は None.
         """
-        if not self.fg.entrys:
+        if not self.episodes:
             return None
+        # 公開日の降順でソートして最新エピソードを取得
+        sorted_episodes = sorted(
+            self.episodes,
+            key=lambda ep: ep.get("pub_date", datetime.datetime.min.replace(tzinfo=pytz.UTC)),
+            reverse=True,
+        )
+        return sorted_episodes[0]
 
-        latest_entry = self.fg.entrys[-1]
-        episode_info = {
-            "title": latest_entry.title(),
-            "description": latest_entry.description(),
-            "guid": latest_entry.id(),
-            "link": latest_entry.link(),
-        }
+    def list_episodes(self) -> list[EpisodeData]:
+        """RSSフィード内の全エピソード情報をリストで取得.
 
-        # エンクロージャ情報
-        enclosures = latest_entry.enclosures()
-        if enclosures:
-            enclosure = enclosures[0]
-            episode_info.update(
-                {
-                    "audio_url": enclosure["url"],
-                    "mime_type": enclosure.get("type", "audio/mpeg"),
-                    "file_size": int(enclosure.get("length", "0"))
-                    if str(enclosure.get("length", "0")).isdigit()
-                    else 0,
-                }
-            )
-
-        return episode_info
+        Returns:
+            エピソード情報を含む辞書のリスト.
+        """
+        return self.episodes
 
     def update_title(self, new_title: str) -> None:
         """RSS XMLのタイトルを更新.
@@ -474,6 +483,24 @@ class PodcastRssManager:
         rss_str = self._wrap_elements_with_cdata(rss_str, ["title"])
         self.rss_xml = rss_str
 
+    def update_channel(self, **kwargs: Unpack[ChannelData]) -> None:
+        """RSS XMLのチャンネル情報を更新.
+
+        Args:
+            kwargs: 更新するチャンネル情報を含む辞書. ChannelDataで定義されたキーをサポート.
+        """
+        self._set_podcast_basic_info(**kwargs)
+        self._initialize_fg()
+        self._register_channel()
+        self._register_episodes()
+        rss_str = self.fg.rss_str(pretty=True).decode("utf-8")
+        # 必要に応じて CDATA を適用
+        rss_str = self._wrap_elements_with_cdata(
+            rss_str,
+            ["title", "description"],
+        )
+        self.rss_xml = rss_str
+
     def update_description(self, new_description: str) -> None:
         """RSS XMLの説明を更新.
 
@@ -483,7 +510,7 @@ class PodcastRssManager:
         self.fg.description(new_description)
         rss_str = self.fg.rss_str(pretty=True).decode("utf-8")
         # 説明と iTunes サマリーを CDATA で囲む
-        rss_str = self._wrap_elements_with_cdata(rss_str, ["description", "itunes:summary"])
+        rss_str = self._wrap_elements_with_cdata(rss_str, ["description"])
         self.rss_xml = rss_str
 
     def update_category(self, new_category: str) -> None:
@@ -514,7 +541,7 @@ class PodcastRssManager:
                 - file_size (int): 音声ファイルサイズ(バイト)
                 - mime_type (str): MIME タイプ(デフォルト: audio/mpeg)
                 - itunes_summary: iTunesサマリー
-                - itunes_explicit: iTunes明示的表示("yes" or "no")
+                - itunes_explicit: iTunes明示的表示("yes", "no", "clean")
                 - itunes_duration: iTunes再生時間(例: "01:23:45")
                 - itunes_image: iTunesエピソード画像URL
                 - itunes_season: iTunesシーズン番号
@@ -534,13 +561,21 @@ class PodcastRssManager:
         Args:
             episode_id: 更新するエピソードのID (guid).
             updated_data: 更新する情報を含む辞書. サポートするキー:
-                - title (str): タイトル
-                - description (str): 説明
-                - audio_url (str): 音声ファイルのURL
-                - itunes_duration (str): 再生時間
-                - pub_date (datetime): 公開日時
-                - creator (str): エピソード作成者
-                - file_size (int): 音声ファイルサイズ
+                - title: エピソードタイトル(必須)
+                - description: エピソード説明(必須)
+                - audio_url: 音声ファイルのURL(必須)
+                - file_size: 音声ファイルサイズ(バイト)(必須)
+                - mime_type: MIME タイプ(デフォルト: audio/mpeg)
+                - itunes_duration: 再生時間(例: "01:23:45")(必須)
+                - link: エピソードのリンク
+                - creator: エピソード作成者
+                - pub_date: 公開日時
+                - itunes_summary: iTunesサマリー
+                - itunes_explicit: iTunes明示的表示("yes", "no", "clean")
+                - itunes_image: iTunesエピソード画像URL
+                - itunes_season: iTunesシーズン番号
+                - itunes_episode_number: iTunesエピソード番号
+                - itunes_episode_type: iTunesエピソードタイプ(例: "full", "trailer", "bonus")
         """
         # 指定IDのエピソードを探して更新
         episode_found = False
@@ -608,12 +643,12 @@ class PodcastRssManager:
         category: str,
         cover_url: str,
         owner_name: str,
-        owner_email: str = "",
+        owner_email: str = "admin@sunabalog.com",
         author: str = "",
         copyright_text: str = "",
-        show_link: str = "",
+        show_link: str = "https://sunabalog.com",
         podcast_type: str = "episodic",
-        rss_link: str = "https://anchor.fm/s/10c66ec7c/podcast/rss",
+        rss_link: str = "https://podcast.sunabalog.com/feed.xml",
     ) -> str:
         """新しいポッドキャストRSSフィードを生成.
 
@@ -648,14 +683,12 @@ class PodcastRssManager:
             # ウェブサイトのHTML版へのリンク(alternate)
             self.fg.link(href=show_link, rel="alternate", type="text/html")
         # rss_linkが指定されていればatom:linkも設定
-        if rss_link != "":
-            self.fg.id(rss_link)  # フィードの一意なID
-            # Atomフィード自体へのリンク(self)
-            self.fg.link(href=rss_link, rel="self", type="application/atom+xml")
-            # フィードをファイルに出力
-            # self.fg.atom_file("atom.xml")
-
-        self.fg.link(href=rss_link, rel="self", type="application/rss+xml")  # セルフリンク
+        # if rss_link != "":
+        self.fg.id(rss_link)  # フィードの一意なID
+        # Atomフィード自体へのリンク(self)
+        self.fg.link(href=rss_link, rel="self", type="application/rss+xml")
+        # フィードをファイルに出力
+        # self.fg.atom_file("atom.xml")
         self.fg.description(description)  # 番組説明
         self.fg.language(language)
 
@@ -703,6 +736,6 @@ class PodcastRssManager:
         """
         # RSS生成後にCDATAを適用
         rss_str = self.fg.rss_str(pretty=True).decode("utf-8")
-        cdata_tags = ["title", "description", "itunes:summary", "dc:creator", "itunes:author", "copyright"]
+        cdata_tags = ["title", "description", "dc:creator", "copyright"]
         rss_str = self._wrap_elements_with_cdata(rss_str, cdata_tags)
         self.rss_xml = rss_str

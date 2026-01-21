@@ -48,6 +48,7 @@ class TestXMLEscaping:
         )
 
         episode_data = {
+            "link": "https://example.com/episode1",
             "title": "Episode 1 & Tutorial: HTML < CSS > JavaScript",
             "description": 'Learn about "HTML" & <CSS>. Don\'t skip!',
             "audio_url": "https://example.com/audio.mp3",
