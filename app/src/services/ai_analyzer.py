@@ -117,7 +117,17 @@ class AudioAnalyzer:
             file_uri=gcs_uri,
             mime_type=mime_type,
         )
-        prompt = "提供されたポッドキャスト配信の音声記録をもとに、議事録を作成して下さい。議論された主要なトピック、決定事項、各担当者のアクションアイテムを正確かつ簡潔に記録した、フォーマルなビジネス文書にして下さい。登場人物は小野、数森、高島です。"
+        prompt = """
+提供されたポッドキャスト配信の音声記録をもとに、議事録を作成して下さい。
+議論された主要なトピック、決定事項、各担当者のアクションアイテムを正確かつ簡潔に記録した、フォーマルなビジネス文書にして下さい。
+また、【目次】も作成して下さい。(議事録の内容から主要トピックを時系列で抽出し、以下の形式で記載)
+0:00 AAA
+0:16 BBB
+5:00 CCC
+12:54 DDD
+17:11 EEE
+登場人物は小野、数森、高島です。
+"""
 
         response = self.client.models.generate_content(
             model=model_id,
@@ -141,8 +151,7 @@ class AudioAnalyzer:
 
         if not prompt:
             prompt = f"""
-以下はポッドキャストの議事録です。
-この内容をもとに、リスナーの興味を引く形で番組紹介文を作成してください。
+以下の議事録の内容をもとに、リスナーの興味を引く形で番組紹介文を作成してください。
 
 出力は必ず **JSONのみ** とし、次のスキーマに厳密に従ってください。
 {{
@@ -183,23 +192,37 @@ sunaba log: 友人同士で週次で雑談しながら「30 days to build」プ�
             contents=[prompt],
             config=GenerateContentConfig(
                 temperature=0.3,
-                max_output_tokens=2000,
+                max_output_tokens=12000,
                 response_mime_type="application/json",
                 response_json_schema=Summary.model_json_schema(),
             ),
         )
         if not response.text:
             raise ValueError("No response received from the model.")
+
+        text = response.text.strip()
+        # 末尾が '}' で終わっているかチェックし、不完全ならエラーとして処理
+        if not text.endswith("}"):
+            logger.error("Model output truncated or incomplete JSON. response.text=%s", text)
+            raise ValueError(
+                "Model output was truncated or incomplete JSON. Try increasing max_output_tokens or simplifying the prompt."
+            )
+
         try:
-            return Summary.model_validate_json(response.text)
-        except Exception:
-            logger.warning("Summary JSON validation failed. response.text=%s", response.text)
+            return Summary.model_validate_json(text)
+        except Exception as err:
+            logger.warning("Summary JSON validation failed. response.text=%s", text)
             # Best-effort recovery if the model emits surrounding text.
-            text = response.text.strip()
             start = text.find("{")
             end = text.rfind("}")
             if start != -1 and end != -1 and end > start:
-                return Summary.model_validate_json(text[start : end + 1])
+                candidate = text[start : end + 1]
+                if not candidate.endswith("}"):
+                    logger.exception("Recovered JSON is still incomplete. candidate=%s", candidate)
+                    raise ValueError(
+                        "Recovered JSON is still incomplete. Try increasing max_output_tokens or simplifying the prompt."
+                    ) from err
+                return Summary.model_validate_json(candidate)
             raise
 
 
