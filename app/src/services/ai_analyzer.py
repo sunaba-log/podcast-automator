@@ -147,7 +147,7 @@ class AudioAnalyzer:
 出力は必ず **JSONのみ** とし、次のスキーマに厳密に従ってください。
 {{
   "title": "キャッチーで分かりやすいエピソードタイトル(200文字以内)",
-  "description": "以下の出力フォーマットに沿った番組紹介文。JSON文字列として有効になるよう改行は\\nで表現すること。"
+  "description": "以下の出力フォーマットに沿った番組紹介文。XMLフィード内でHTMLタグを直接書くことを考慮してください。改行は<br>で表現すること。"
 }}
 
 descriptionの出力フォーマット:
@@ -170,7 +170,7 @@ sunaba log: 友人同士で週次で雑談しながら「30 days to build」プ�
 全体内容を400字程度で要約してください。
 
 【関連情報】
-- sunabalog GitHubリポジトリ: https://github.com/sunaba-log/podcast-automator.git
+- GitHub: https://github.com/sunaba-log
 - 技術スタック: 今回扱われた技術スタックを箇条書きで列挙
 - キーワード: 今回扱われたキーワードを箇条書きで列挙
 
