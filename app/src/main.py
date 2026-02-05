@@ -178,6 +178,8 @@ def process_podcast_workflow() -> None:
         transcript = audio_analyzer.generate_transcript(
             f"gs://{GCS_BUCKET}/{GCS_TRIGGER_OBJECT_NAME}", model_id=AI_MODEL_ID
         )
+        # aI解析結果=議事録をDiscordに通知
+        notifier_client.send_discord_message(message=f"#{latest_episode_number} Meeting Transcript:\n\n{transcript}")
         if transcript:
             summary = audio_analyzer.summarize_transcript(transcript, model_id=AI_MODEL_ID)
         else:
