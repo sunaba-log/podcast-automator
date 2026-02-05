@@ -155,33 +155,44 @@ class AudioAnalyzer:
 
 出力は必ず **JSONのみ** とし、次のスキーマに厳密に従ってください。
 {{
-  "title": "キャッチーで分かりやすいエピソードタイトル(200文字以内)",
-  "description": "以下の出力フォーマットに沿った番組紹介文。XMLフィード内でHTMLタグを直接書くことを考慮してください。改行は<br>で表現すること。"
+    "title": "キャッチーで分かりやすいエピソードタイトル(200文字以内)",
+    "description": "RSSフィードに適したHTMLタグを**エスケープした**番組紹介文。**生のHTMLタグは使用せず**、&amp;lt; &amp;gt; &amp;amp; で必ずエスケープしてください。段落は&amp;lt;p&amp;gt;...&amp;lt;/p&amp;gt;、強調見出しは&amp;lt;strong&amp;gt;...&amp;lt;/strong&amp;gt;、空行は&amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;で表現してください。"
 }}
 
-descriptionの出力フォーマット:
+descriptionの出力フォーマット（**すべてHTMLエスケープ済み**、**以下の見出しを必ず含める**）:
 
-【エピソードタイトル】
-(キャッチーで分かりやすいタイトル、200文字以内)
+1) エピソード概要（必須）
+&amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【エピソード概要】&amp;lt;/strong&amp;gt; &amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;（400字程度の概要）&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;
 
-【番組紹介】
-sunaba log: 友人同士で週次で雑談しながら「30 days to build」プロジェクトを進行する、雑談発想型プロトタイピング会議録。
+2) 追加の概要段落があれば複数段落で記述（任意）
+&amp;lt;p&amp;gt;（必要に応じて続ける）&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;
 
-【目次】
-(議事録の内容から主要トピックを時系列で抽出し、以下の形式で記載)
-0:00 AAA
-0:16 BBB
-5:00 CCC
-12:54 DDD
-17:11 EEE
+3) 目次（必須）
+&amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【目次】&amp;lt;/strong&amp;gt; &amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;0:00 AAA&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;0:16 BBB&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;5:00 CCC&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;12:54 DDD&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;17:11 EEE&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;
 
-【概要】
-全体内容を400字程度で要約してください。
+4) 関連情報（必須）
+&amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【関連情報】&amp;lt;/strong&amp;gt; &amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;- GitHub: https://github.com/sunaba-log&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;- 技術スタック: 議事録内で扱われた技術スタックを**箇条書き**で列挙&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;  - 例: Python&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;  - 例: GCS&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;- キーワード: 議事録内で扱われたキーワードを**箇条書き**で列挙&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;  - 例: ARグラス&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;  - 例: LLM&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;
 
-【関連情報】
-- GitHub: https://github.com/sunaba-log
-- 技術スタック: 今回扱われた技術スタックを箇条書きで列挙
-- キーワード: 今回扱われたキーワードを箇条書きで列挙
+5) about us（必須）
+&amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【about us】&amp;lt;/strong&amp;gt;&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;sunaba log: 友人同士で週次で雑談しながら「30 days to build」プロジェクトを進行する、雑談発想型プロトタイピング会議録。&amp;lt;/p&amp;gt;
 
 --- 以下が議事録です ---
 {transcript}
