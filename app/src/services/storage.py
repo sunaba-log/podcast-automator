@@ -146,11 +146,29 @@ class GCSClient:
             bucket = self.client.bucket(bucket_name)
             blob = bucket.blob(object_name)
             blob.download_to_filename(destination_file_path)
-            logger.info(
-                "Downloaded gs://{bucket_name}/{object_name} to {destination_file_path}",
-            )
+            logger.info("Downloaded gs://%s/%s to %s", bucket_name, object_name, destination_file_path)
         except Exception as e:
             logger.exception("Failed to download blob:")
+            raise
+
+    def download_blob_as_bytes(self, bucket_name: str, object_name: str) -> bytes:
+        """GCS から blob を bytes としてダウンロード.
+
+        Args:
+            bucket_name: GCS バケット名.
+            object_name: ダウンロードするオブジェクト名.
+
+        Returns:
+            バイナリデータ.
+        """
+        try:
+            bucket = self.client.bucket(bucket_name)
+            blob = bucket.blob(object_name)
+            file_bytes = blob.download_as_bytes()
+            logger.info("Downloaded gs://%s/%s as bytes", bucket_name, object_name)
+            return file_bytes
+        except Exception as e:
+            logger.exception("Failed to download blob as bytes:")
             raise
 
     def upload_blob(
@@ -194,70 +212,6 @@ class GCSClient:
         except Exception as e:
             logger.exception("Failed to list blobs:")
             raise
-
-
-def transfer_gcs_to_r2(
-    gcs_client: GCSClient,
-    r2_client: R2Client,
-    gcs_bucket_name: str,
-    gcs_object_name: str,
-    r2_remote_key: str,
-    content_type: str | None = None,
-    *,
-    public: bool = True,
-    custom_domain: str | None = None,
-) -> tuple:
-    """GCS から R2 へファイルを転送.
-
-    Args:
-        gcs_client: GCS クライアント.
-        r2_client: R2 クライアント.
-        gcs_bucket_name: GCS バケット名.
-        gcs_object_name: GCS オブジェクト名.
-        r2_remote_key: R2 リモートキー.
-        content_type: コンテンツタイプ.
-        public: 公開するかどうか.
-        custom_domain: カスタムドメイン.
-
-    Returns:
-        R2 にアップロードされたファイルの公開 URL.
-    """
-    path = Path(gcs_object_name)
-    file_format = path.suffix.lstrip(".").lower()
-
-    try:
-        # GCS からファイルをダウンロード
-        with io.BytesIO() as file_buffer:
-            bucket = gcs_client.client.bucket(gcs_bucket_name)
-            blob = bucket.blob(gcs_object_name)
-            blob.download_to_file(file_buffer)
-            file_buffer.seek(0)
-
-            file_bytes = file_buffer.read()
-
-            # オーディオ情報を取得
-            try:
-                file_size_bytes, duration_str = get_audio_info(
-                    file_buffer=io.BytesIO(file_bytes),
-                    audio_format=file_format,
-                )
-            except Exception as e:  # noqa: BLE001
-                logger.warning("Failed to get audio info")
-                file_size_bytes, duration_str = -1, "00:00:00"
-
-            # R2 にファイルをアップロード
-            r2_url = r2_client.upload_file(
-                file_content=file_bytes,
-                remote_key=r2_remote_key,
-                content_type=content_type,
-                public=public,
-            )
-        logger.info("Transferred gs://%s/%s to R2: %s", gcs_bucket_name, gcs_object_name, r2_url)
-        public_url = r2_client.generate_public_url(remote_key=r2_remote_key, custom_domain=custom_domain)
-        return public_url, file_size_bytes, duration_str
-    except Exception as e:
-        logger.exception("Failed to transfer file from GCS to R2:")
-        raise
 
 
 def get_audio_info(file_buffer: io.BytesIO, audio_format: str) -> list:
