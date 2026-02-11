@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 import mimetypes
@@ -15,12 +16,13 @@ from typing import TYPE_CHECKING
 
 from services import (
     AudioAnalyzer,
+    AudioConverter,
     GCSClient,
     Notifier,
     PodcastRssManager,
     R2Client,
     SecretManagerClient,
-    transfer_gcs_to_r2,
+    get_audio_info,
 )
 
 if TYPE_CHECKING:
@@ -194,18 +196,27 @@ def process_podcast_workflow() -> None:
         )
 
         # --- Phase 2: Upload to R2 ---
-        logger.info("\n## Step2: Uploading to Cloudflare R2... ##")
-        # ストリームでGCSから取得し、R2へアップロード(ローカルディスク節約)
-        public_url, file_size_bytes, duration_str = transfer_gcs_to_r2(
-            gcs_client=gcs_client,
-            r2_client=r2_client,
-            gcs_bucket_name=GCS_BUCKET,
-            gcs_object_name=GCS_TRIGGER_OBJECT_NAME,
-            r2_remote_key=f"{R2_KEY_PREFIX}/ep/{latest_episode_number}/audio{gcs_path.suffix}",
-            content_type=mime_type,
+        logger.info("\n## Step2: Converting to MP3 and Uploading to Cloudflare R2... ##")
+        audio_upload_mime_type = "audio/mpeg"
+        original_audio_bytes = gcs_client.download_blob_as_bytes(GCS_BUCKET, GCS_TRIGGER_OBJECT_NAME)
+        mp3_bytes = AudioConverter.convert_to_mp3(original_audio_bytes, gcs_path.suffix)
+        try:
+            file_size_bytes, duration_str = get_audio_info(
+                file_buffer=io.BytesIO(mp3_bytes),
+                audio_format="mp3",
+            )
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to get audio info")
+            file_size_bytes, duration_str = len(mp3_bytes), "00:00:00"
+
+        r2_remote_key = f"{R2_KEY_PREFIX}/ep/{latest_episode_number}/audio.mp3"
+        r2_client.upload_file(
+            file_content=mp3_bytes,
+            remote_key=r2_remote_key,
+            content_type=audio_upload_mime_type,
             public=True,
-            custom_domain=R2_CUSTOM_DOMAIN,
         )
+        public_url = r2_client.generate_public_url(remote_key=r2_remote_key, custom_domain=R2_CUSTOM_DOMAIN)
         logger.info("Uploaded audio to R2: %s, Size: %s bytes, Duration: %s", public_url, file_size_bytes, duration_str)
 
         # --- Phase 3: Update RSS ---
@@ -218,7 +229,7 @@ def process_podcast_workflow() -> None:
             "file_size": file_size_bytes,
             "itunes_duration": duration_str,
             "creator": "sunabalog",
-            "mime_type": mime_type,
+            "mime_type": audio_upload_mime_type,
             "itunes_summary": summary.description,
             "itunes_explicit": "no",
             "itunes_season": 1,
