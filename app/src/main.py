@@ -48,9 +48,7 @@ R2_ACCESS_KEY_ID = os.environ.get("CLOUDFLARE_ACCESS_KEY_ID")  # noqa: RUF003
 R2_SECRET_ACCESS_KEY = os.environ.get("CLOUDFLARE_SECRET_ACCESS_KEY")  # noqa: RUF003
 DISCORD_WEBHOOK_INFO_URL = os.environ.get("DISCORD_WEBHOOK_INFO_URL")
 AI_MODEL_ID = os.environ.get("AI_MODEL_ID", "gemini-2.5-flash")  # GeminiモデルID(未指定時はデフォルト)  # noqa: RUF003
-R2_CUSTOM_DOMAIN = os.environ.get(
-    "R2_CUSTOM_DOMAIN", "podcast.sunabalog.com"
-)  # R2のカスタムドメイン(未指定時はエンドポイントURL)  # noqa: RUF003S
+R2_CUSTOM_DOMAIN = os.environ.get("R2_CUSTOM_DOMAIN", "podcast.sunabalog.com")
 
 R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL", f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com")
 if SECRET_NAME is None and (R2_ACCESS_KEY_ID is None or R2_SECRET_ACCESS_KEY is None):

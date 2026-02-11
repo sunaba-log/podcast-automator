@@ -159,18 +159,18 @@ class AudioAnalyzer:
     "description": "RSSフィードに適したHTMLタグを**エスケープした**番組紹介文。**生のHTMLタグは使用せず**、&amp;lt; &amp;gt; &amp;amp; で必ずエスケープしてください。段落は&amp;lt;p&amp;gt;...&amp;lt;/p&amp;gt;、強調見出しは&amp;lt;strong&amp;gt;...&amp;lt;/strong&amp;gt;、空行は&amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;で表現してください。"
 }}
 
-descriptionの出力フォーマット（**すべてHTMLエスケープ済み**、**以下の見出しを必ず含める**）:
+descriptionの出力フォーマット(**すべてHTMLエスケープ済み**、**以下の見出しを必ず含める**):
 
-1) エピソード概要（必須）
+1) エピソード概要(必須)
 &amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【エピソード概要】&amp;lt;/strong&amp;gt; &amp;lt;/p&amp;gt;
-&amp;lt;p&amp;gt;（400字程度の概要）&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;(400字程度の概要)&amp;lt;/p&amp;gt;
 &amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;
 
-2) 追加の概要段落があれば複数段落で記述（任意）
-&amp;lt;p&amp;gt;（必要に応じて続ける）&amp;lt;/p&amp;gt;
+2) 追加の概要段落があれば複数段落で記述(任意)
+&amp;lt;p&amp;gt;(必要に応じて続ける)&amp;lt;/p&amp;gt;
 &amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;
 
-3) 目次（必須）
+3) 目次(必須)
 &amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【目次】&amp;lt;/strong&amp;gt; &amp;lt;/p&amp;gt;
 &amp;lt;p&amp;gt;0:00 AAA&amp;lt;/p&amp;gt;
 &amp;lt;p&amp;gt;0:16 BBB&amp;lt;/p&amp;gt;
@@ -179,7 +179,7 @@ descriptionの出力フォーマット（**すべてHTMLエスケープ済み**�
 &amp;lt;p&amp;gt;17:11 EEE&amp;lt;/p&amp;gt;
 &amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;
 
-4) 関連情報（必須）
+4) 関連情報(必須)
 &amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【関連情報】&amp;lt;/strong&amp;gt; &amp;lt;/p&amp;gt;
 &amp;lt;p&amp;gt;- GitHub: https://github.com/sunaba-log&amp;lt;/p&amp;gt;
 &amp;lt;p&amp;gt;- 技術スタック: 議事録内で扱われた技術スタックを**箇条書き**で列挙&amp;lt;/p&amp;gt;
@@ -190,7 +190,7 @@ descriptionの出力フォーマット（**すべてHTMLエスケープ済み**�
 &amp;lt;p&amp;gt;  - 例: LLM&amp;lt;/p&amp;gt;
 &amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;
 
-5) about us（必須）
+5) about us(必須)
 &amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【about us】&amp;lt;/strong&amp;gt;&amp;lt;/p&amp;gt;
 &amp;lt;p&amp;gt;sunaba log: 友人同士で週次で雑談しながら「30 days to build」プロジェクトを進行する、雑談発想型プロトタイピング会議録。&amp;lt;/p&amp;gt;
 
