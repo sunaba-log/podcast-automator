@@ -3,7 +3,6 @@
 import io
 import json
 import logging
-from pathlib import Path
 
 import boto3
 from botocore.exceptions import ClientError
