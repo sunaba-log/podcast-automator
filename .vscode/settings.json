@@ -1,12 +1,23 @@
 {
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-      "source.fixAll.pylance": "explicit",
-      "source.organizeImports": "explicit",
-      "source.unusedImports": "explicit"
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.pylance": "explicit",
+            "source.organizeImports": "explicit",
+            "source.unusedImports": "explicit"
+        }
+    },
+    "cSpell.enabled": false,
+    "chat.promptFilesRecommendations": {
+        "speckit.constitution": true,
+        "speckit.specify": true,
+        "speckit.plan": true,
+        "speckit.tasks": true,
+        "speckit.implement": true
+    },
+    "chat.tools.terminal.autoApprove": {
+        ".specify/scripts/bash/": true,
+        ".specify/scripts/powershell/": true
     }
-  },
-  "cSpell.enabled": false
 }
