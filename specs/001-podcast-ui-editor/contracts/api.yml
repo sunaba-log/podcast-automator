@@ -1,0 +1,349 @@
+openapi: 3.1.0
+info:
+  title: Podcast UI Editor API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8000
+security:
+  - AdminPassword: []
+components:
+  securitySchemes:
+    AdminPassword:
+      type: apiKey
+      in: header
+      name: X-Admin-Password
+  schemas:
+    Podcast:
+      type: object
+      required: [id, title, description, rssUrl]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        link: { type: string }
+        language: { type: string }
+        itunesAuthor: { type: string }
+        itunesCategory: { type: string }
+        itunesImageUrl: { type: string }
+        itunesExplicit: { type: string }
+        ownerName: { type: string }
+        ownerEmail: { type: string }
+        rssUrl: { type: string }
+    Episode:
+      type: object
+      required: [id, podcastId, title, description, status, audioUrl]
+      properties:
+        id: { type: string }
+        podcastId: { type: string }
+        title: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [draft, published] }
+        audioUrl: { type: string }
+        audioSizeBytes: { type: integer }
+        audioMimeType: { type: string }
+        itunesDuration: { type: string }
+        itunesImageUrl: { type: string }
+        publishedAt: { type: string, format: date-time }
+    RssBackup:
+      type: object
+      required: [id, rssUrl, backupUrl, createdAt]
+      properties:
+        id: { type: string }
+        rssUrl: { type: string }
+        backupUrl: { type: string }
+        createdAt: { type: string, format: date-time }
+    ErrorResponse:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+paths:
+  /api/feeds/import:
+    post:
+      summary: RSSを取得して番組情報を読み込む
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rssUrl]
+              properties:
+                rssUrl: { type: string }
+      responses:
+        "200":
+          description: 読み込み成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  podcast: { $ref: "#/components/schemas/Podcast" }
+                  episodes:
+                    type: array
+                    items: { $ref: "#/components/schemas/Episode" }
+        "400":
+          description: 不正なRSS
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/podcasts/{podcastId}:
+    get:
+      summary: 番組情報の取得
+      parameters:
+        - in: path
+          name: podcastId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Podcast" }
+    patch:
+      summary: 番組情報の更新
+      parameters:
+        - in: path
+          name: podcastId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                link: { type: string }
+                itunesAuthor: { type: string }
+                itunesCategory: { type: string }
+                itunesImageUrl: { type: string }
+                itunesExplicit: { type: string }
+                ownerName: { type: string }
+                ownerEmail: { type: string }
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Podcast" }
+  /api/podcasts/{podcastId}/artwork:
+    post:
+      summary: 番組アートワークのアップロード
+      parameters:
+        - in: path
+          name: podcastId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: アップロード成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imageUrl: { type: string }
+  /api/podcasts/{podcastId}/episodes:
+    get:
+      summary: エピソード一覧の取得
+      parameters:
+        - in: path
+          name: podcastId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: q
+          required: false
+          schema: { type: string }
+        - in: query
+          name: status
+          required: false
+          schema: { type: string, enum: [draft, published] }
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Episode" }
+    post:
+      summary: 新規エピソード作成（メタデータ＋音声）
+      parameters:
+        - in: path
+          name: podcastId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title, description, audioFile]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                status: { type: string, enum: [draft, published] }
+                audioFile:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: 作成成功
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Episode" }
+  /api/podcasts/{podcastId}/episodes/{episodeId}:
+    patch:
+      summary: エピソード情報の更新
+      parameters:
+        - in: path
+          name: podcastId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: episodeId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                status: { type: string, enum: [draft, published] }
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Episode" }
+  /api/podcasts/{podcastId}/episodes/{episodeId}/artwork:
+    post:
+      summary: エピソードアートワークのアップロード
+      parameters:
+        - in: path
+          name: podcastId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: episodeId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: アップロード成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imageUrl: { type: string }
+  /api/podcasts/{podcastId}/episodes/{episodeId}/audio:
+    post:
+      summary: エピソード音声の差し替え
+      parameters:
+        - in: path
+          name: podcastId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: episodeId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audioFile]
+              properties:
+                audioFile:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: 差し替え成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  audioUrl: { type: string }
+                  audioSizeBytes: { type: integer }
+                  itunesDuration: { type: string }
+  /api/podcasts/{podcastId}/rss/publish:
+    post:
+      summary: RSS更新と公開（バックアップ作成含む）
+      parameters:
+        - in: path
+          name: podcastId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 公開成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rssUrl: { type: string }
+                  backup: { $ref: "#/components/schemas/RssBackup" }
+  /api/previews:
+    post:
+      summary: 説明文プレビュー生成
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target, text]
+              properties:
+                target:
+                  {
+                    type: string,
+                    enum: [podcast_description, episode_description],
+                  }
+                text: { type: string }
+      responses:
+        "200":
+          description: プレビュー生成
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  renderedHtml: { type: string }

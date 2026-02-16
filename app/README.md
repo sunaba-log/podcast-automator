@@ -12,7 +12,10 @@ GCS (Google Cloud Storage) にアップロードされた音声ファイルを�
 │   ├── ai_analyzer.py   # Vertex AI 連携
 │   ├── r2_client.py     # Cloudflare R2 操作
 │   ├── rss_manager.py   # RSSフィード生成・更新
-│   └── ...
+│   ├── rss_manager.py   # RSSフィード生成・更新
+│   ├── notifier.py   # Discord への通知用
+│   ├── storage.py   # Cloudflare R2, Google Cloud Storage 操作ライブラリ
+│   └── audio_converter.py # Audio file converter service.
 ├── pyproject.toml       # 依存関係定義
 ├── uv.lock              # ロックファイル
 └── Dockerfile           # コンテナ定義
@@ -20,14 +23,14 @@ GCS (Google Cloud Storage) にアップロードされた音声ファイルを�
 
 ## 🚀 主な機能
 
-1.  **AI 分析 (Vertex AI / Gemini)**
+1. **AI 分析 (Vertex AI / Gemini)**
     - 音声ファイル (GCS) を直接読み込み、文字起こしと要約（タイトル・概要）を自動生成します。
-2.  **ホスティング (Cloudflare R2)**
+2. **ホスティング (Cloudflare R2)**
     - 音声ファイルを GCS から配信用の R2 バケットへストリーム転送します（ローカルディスク消費なし）。
     - ファイルサイズと再生時間を自動計算します。
-3.  **RSS フィード自動更新**
+3. **RSS フィード自動更新**
     - 既存の `feed.xml` を R2 から取得し、新エピソードを追加して再アップロードします。
-4.  **通知 (Discord)**
+4. **通知 (Discord)**
     - 処理の進捗（開始・完了・エラー）を Discord Webhook で通知します。
 
 ## 📋 必要な環境

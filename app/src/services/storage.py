@@ -1,4 +1,4 @@
-"""Cloudflare R2 操作ライブラリ."""
+"""Cloudflare R2, Google Cloud Storage 操作ライブラリ."""
 
 import io
 import json
