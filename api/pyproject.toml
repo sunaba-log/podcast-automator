@@ -1,0 +1,29 @@
+[project]
+name = "podcast-ui-editor-api"
+version = "0.1.0"
+description = "Podcast UI Editor API"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.111.0",
+  "uvicorn>=0.30.0",
+  "boto3>=1.34.0",
+  "feedparser>=6.0.11",
+  "feedgen>=0.9.0",
+  "python-dotenv>=1.0.1",
+  "python-multipart>=0.0.9",
+  "pydantic>=2.7.0"
+]
+
+[project.scripts]
+start = "run:main"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "B"]
+
+[tool.ruff.format]
+quote-style = "double"

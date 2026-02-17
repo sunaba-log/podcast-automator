@@ -598,3 +598,16 @@ site
 # Zunit tests' output
 tests/_output/*
 !tests/_output/.gitkeep
+
+# Project-specific ignores
+node_modules/
+.git/
+Dockerfile*
+.dockerignore
+*.log*
+.env*
+coverage/
+dist/
+build/
+__pycache__/
+*.pyc

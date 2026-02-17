@@ -53,3 +53,21 @@ htmlcov/
 **/__pycache__/
 *.egg-info/
 .env
+
+# Node.js
+node_modules/
+dist/
+build/
+*.log
+.env*
+.next/
+
+# Editor/OS
+.vscode/
+.idea/
+Thumbs.db
+*.tmp
+*.swp
+
+# FAST API
+backups/

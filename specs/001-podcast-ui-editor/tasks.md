@@ -14,16 +14,16 @@ description: "機能実装用のタスクリスト"
 
 **目的**: 初期化と基本構造
 
-- [ ] T001 API プロジェクト設定を初期化する in api/pyproject.toml
-- [ ] T002 FastAPI エントリポイントとルータ基盤を作成する in api/src/main.py
-- [ ] T003 Web プロジェクト設定を初期化する in web/package.json
-- [ ] T004 Tailwind/shadcn 基本スタイルを追加する in web/tailwind.config.ts
-- [ ] T005 [P] Pytest 設定を追加する in api/pytest.ini
-- [ ] T006 [P] Vitest 設定を追加する in web/vitest.config.ts
-- [ ] T007 [P] API 環境変数テンプレートを追加する in api/.env.example
-- [ ] T008 [P] Web 環境変数テンプレートを追加する in web/.env.local.example
-- [ ] T009 [P] API リント/フォーマット設定を追加する in api/pyproject.toml
-- [ ] T010 [P] Web ESLint 設定を追加する in web/.eslintrc.cjs
+- [x] T001 API プロジェクト設定を初期化する in api/pyproject.toml
+- [x] T002 FastAPI エントリポイントとルータ基盤を作成する in api/src/main.py
+- [x] T003 Web プロジェクト設定を初期化する in web/package.json
+- [x] T004 Tailwind/shadcn 基本スタイルを追加する in web/tailwind.config.ts
+- [x] T005 [P] Pytest 設定を追加する in api/pytest.ini
+- [x] T006 [P] Vitest 設定を追加する in web/vitest.config.ts
+- [x] T007 [P] API 環境変数テンプレートを追加する in api/.env.example
+- [x] T008 [P] Web 環境変数テンプレートを追加する in web/.env.local.example
+- [x] T009 [P] API リント/フォーマット設定を追加する in api/pyproject.toml
+- [x] T010 [P] Web ESLint 設定を追加する in web/.eslintrc.cjs
 
 ---
 
@@ -33,17 +33,17 @@ description: "機能実装用のタスクリスト"
 
 **⚠️ 重要**: ここが完了するまでストーリー実装は開始しない
 
-- [ ] T011 環境設定ローダを実装する in api/src/config.py
-- [ ] T012 管理パスワード認証依存を実装する in api/src/middleware/auth.py
-- [ ] T013 認証と例外ハンドリングを組み込む in api/src/main.py
-- [ ] T014 Podcast スキーマを定義する in api/src/schemas/podcast.py
-- [ ] T015 Episode スキーマを定義する in api/src/schemas/episode.py
-- [ ] T016 RSS/Backup スキーマを定義する in api/src/schemas/rss.py
-- [ ] T017 R2 クライアントラッパーを実装する in api/src/services/r2_client.py
-- [ ] T018 RSS 取得/解析サービスを実装する in api/src/services/rss_parser.py
-- [ ] T019 RSS バックアップサービスを実装する in api/src/services/rss_backup.py
-- [ ] T020 エラー型と共通レスポンスを実装する in api/src/errors.py
-- [ ] T021 ルータ登録の基盤を整備する in api/src/routers/**init**.py
+- [x] T011 環境設定ローダを実装する in api/src/config.py
+- [x] T012 管理パスワード認証依存を実装する in api/src/middleware/auth.py
+- [x] T013 認証と例外ハンドリングを組み込む in api/src/main.py
+- [x] T014 Podcast スキーマを定義する in api/src/schemas/podcast.py
+- [x] T015 Episode スキーマを定義する in api/src/schemas/episode.py
+- [x] T016 RSS/Backup スキーマを定義する in api/src/schemas/rss.py
+- [x] T017 R2 クライアントラッパーを実装する in api/src/services/r2_client.py
+- [x] T018 RSS 取得/解析サービスを実装する in api/src/services/rss_parser.py
+- [x] T019 RSS バックアップサービスを実装する in api/src/services/rss_backup.py
+- [x] T020 エラー型と共通レスポンスを実装する in api/src/errors.py
+- [x] T021 ルータ登録の基盤を整備する in api/src/routers/**init**.py
 
 **チェックポイント**: 基盤完成 → ストーリー実装を並行開始可能
 
@@ -57,21 +57,21 @@ description: "機能実装用のタスクリスト"
 
 ### テスト（必須）
 
-- [ ] T022 [P] [US1] RSS 取得/更新/公開のユニットテストを追加する in api/tests/test_rss_workflow.py
-- [ ] T023 [P] [US1] UI 編集フローのユニットテストを追加する in web/tests/rss_editor.test.tsx
+- [x] T022 [P] [US1] RSS 取得/更新/公開のユニットテストを追加する in api/tests/test_rss_workflow.py
+- [x] T023 [P] [US1] UI 編集フローのユニットテストを追加する in web/tests/rss_editor.test.tsx
 
 ### 実装
 
-- [ ] T024 [P] [US1] RSS 取り込み API を実装する in api/src/routers/feeds.py
-- [ ] T025 [P] [US1] 番組情報取得/更新 API を実装する in api/src/routers/podcasts.py
-- [ ] T026 [P] [US1] エピソード一覧/更新 API を実装する in api/src/routers/episodes.py
-- [ ] T027 [US1] RSS 公開（バックアップ含む）サービスを実装する in api/src/services/rss_publisher.py
-- [ ] T028 [US1] RSS 公開 API を実装する in api/src/routers/rss.py
-- [ ] T029 [P] [US1] RSS URL 入力と読み込み画面を実装する in web/src/app/page.tsx
-- [ ] T030 [P] [US1] 番組編集フォームを実装する in web/src/components/podcast-editor.tsx
-- [ ] T031 [P] [US1] エピソード一覧と編集 UI を実装する in web/src/components/episode-list.tsx
-- [ ] T032 [US1] エピソード検索/フィルタ UI を実装する in web/src/components/episode-filters.tsx
-- [ ] T033 [US1] RSS/番組/エピソード API クライアントを実装する in web/src/services/api.ts
+- [x] T024 [P] [US1] RSS 取り込み API を実装する in api/src/routers/feeds.py
+- [x] T025 [P] [US1] 番組情報取得/更新 API を実装する in api/src/routers/podcasts.py
+- [x] T026 [P] [US1] エピソード一覧/更新 API を実装する in api/src/routers/episodes.py
+- [x] T027 [US1] RSS 公開（バックアップ含む）サービスを実装する in api/src/services/rss_publisher.py
+- [x] T028 [US1] RSS 公開 API を実装する in api/src/routers/rss.py
+- [x] T029 [P] [US1] RSS URL 入力と読み込み画面を実装する in web/src/app/page.tsx
+- [x] T030 [P] [US1] 番組編集フォームを実装する in web/src/components/podcast-editor.tsx
+- [x] T031 [P] [US1] エピソード一覧と編集 UI を実装する in web/src/components/episode-list.tsx
+- [x] T032 [US1] エピソード検索/フィルタ UI を実装する in web/src/components/episode-filters.tsx
+- [x] T033 [US1] RSS/番組/エピソード API クライアントを実装する in web/src/services/api.ts
 
 **チェックポイント**: ストーリー1が単独で機能・検証可能
 
