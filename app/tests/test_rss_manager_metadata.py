@@ -1,5 +1,7 @@
 """RSS manager tests for metadata and XML escaping."""
 
+import re
+
 import feedparser
 import pytest
 
@@ -331,3 +333,142 @@ class TestRSSValidation:
             pytest.fail(f"RSS parsing failed: {feed.bozo_exception}")
 
         assert len(feed.entries) == 2
+
+
+class TestDescriptionAndSummaryFormatting:
+    """<description>と<itunes:summary>のフォーマットテスト."""
+
+    def test_description_wrapped_with_cdata_and_html_tags_preserved(self) -> None:
+        """<description>がCDATAで囲まれ、HTMLタグがそのまま維持されること."""
+        rss_manager = PodcastRssManager()
+        rss_manager.generate_podcast_rss(
+            title="Test Podcast",
+            description="Test Description",
+            language="ja",
+            category="Technology",
+            cover_url="https://example.com/cover.jpg",
+            owner_name="Test Owner",
+        )
+
+        # HTMLタグを含むエピソードを追加
+        episode_data = {
+            "title": "Episode with HTML",
+            "description": "<p>This is a paragraph.</p><br>Line break here.",
+            "audio_url": "https://example.com/audio.mp3",
+            "itunes_duration": "01:00:00",
+            "file_size": 1024000,
+        }
+        rss_manager.add_episode(episode_data)
+        rss_xml = rss_manager.get_rss_xml()
+
+        # <description>タグがCDATAで囲まれていることを確認
+        assert "<description><![CDATA[" in rss_xml
+        assert "]]></description>" in rss_xml
+
+        # HTMLタグがエスケープされずにそのまま維持されていることを確認
+        assert "<p>This is a paragraph.</p>" in rss_xml
+        assert "<br>" in rss_xml
+
+        # XMLとしてパース可能であることを確認
+        feed = feedparser.parse(rss_xml)
+        assert not feed.bozo or feed.bozo_exception is None
+        assert len(feed.entries) == 1
+
+    def test_itunes_summary_not_wrapped_with_cdata_and_html_escaped(self) -> None:
+        """<itunes:summary>がCDATAで囲まれず、HTMLタグがXMLエスケープされること."""
+        rss_manager = PodcastRssManager()
+        rss_manager.generate_podcast_rss(
+            title="Test Podcast",
+            description="Test Description",
+            language="ja",
+            category="Technology",
+            cover_url="https://example.com/cover.jpg",
+            owner_name="Test Owner",
+        )
+
+        # HTMLタグを含むエピソードを追加
+        episode_data = {
+            "title": "Episode with HTML",
+            "description": "Plain text description",
+            "itunes_summary": "<p>This is a paragraph.</p><br>Line break here.",
+            "audio_url": "https://example.com/audio.mp3",
+            "itunes_duration": "01:00:00",
+            "file_size": 1024000,
+        }
+        rss_manager.add_episode(episode_data)
+        rss_xml = rss_manager.get_rss_xml()
+
+        # <itunes:summary>タグがCDATAで囲まれていないことを確認
+        # (itunes:summaryの直後にCDATAがないことを確認)
+        itunes_summary_pattern = r"<itunes:summary>(?!<!\[CDATA\[)(.+?)</itunes:summary>"
+        matches = re.findall(itunes_summary_pattern, rss_xml, re.DOTALL)
+        assert len(matches) > 0, "itunes:summary tag not found"
+
+        # HTMLタグがXMLエスケープされていることを確認
+        assert "&lt;p&gt;" in rss_xml
+        assert "&lt;br&gt;" in rss_xml
+        # エスケープされていない生のHTMLタグがitunes:summary内にないことを確認
+        assert "<itunes:summary><![CDATA[" not in rss_xml
+
+        # XMLとしてパース可能であることを確認
+        feed = feedparser.parse(rss_xml)
+        assert not feed.bozo or feed.bozo_exception is None
+        assert len(feed.entries) == 1
+
+    def test_description_and_summary_different_formatting(self) -> None:
+        """同じHTMLタグを含むテキストで、descriptionとsummaryが異なる方法でフォーマットされること."""
+        rss_manager = PodcastRssManager()
+        rss_manager.generate_podcast_rss(
+            title="Test Podcast",
+            description="Test Description",
+            language="ja",
+            category="Technology",
+            cover_url="https://example.com/cover.jpg",
+            owner_name="Test Owner",
+        )
+
+        html_content = "<p>Episode content with HTML tags</p><br>"
+        episode_data = {
+            "title": "Test Episode",
+            "description": html_content,
+            "itunes_summary": html_content,
+            "audio_url": "https://example.com/audio.mp3",
+            "itunes_duration": "01:00:00",
+            "file_size": 1024000,
+        }
+        rss_manager.add_episode(episode_data)
+        rss_xml = rss_manager.get_rss_xml()
+
+        # descriptionはCDATAで囲まれ、HTMLタグがそのまま
+        assert "<description><![CDATA[" in rss_xml
+        # エピソードの<item>セクション内のdescriptionを探す
+        item_match = re.search(r"<item>(.+?)</item>", rss_xml, re.DOTALL)
+        assert item_match is not None
+        item_content = item_match.group(1)
+
+        # item内のdescriptionを確認
+        description_match = re.search(
+            r"<description><!\[CDATA\[(.+?)\]\]></description>",
+            item_content,
+            re.DOTALL,
+        )
+        assert description_match is not None
+        description_content = description_match.group(1)
+        assert "<p>Episode content with HTML tags</p>" in description_content
+
+        # itunes:summaryはCDATAで囲まれず、HTMLタグがエスケープ
+        itunes_summary_match = re.search(
+            r"<itunes:summary>(.+?)</itunes:summary>",
+            item_content,
+            re.DOTALL,
+        )
+        assert itunes_summary_match is not None
+        summary_content = itunes_summary_match.group(1)
+        assert "&lt;p&gt;" in summary_content
+        assert "&lt;br&gt;" in summary_content
+        # 生のHTMLタグがないことを確認 (CDATA外)
+        assert "<![CDATA[" not in summary_content
+
+        # XMLとしてパース可能であることを確認
+        feed = feedparser.parse(rss_xml)
+        assert not feed.bozo or feed.bozo_exception is None
