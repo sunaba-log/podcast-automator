@@ -85,19 +85,19 @@ description: "機能実装用のタスクリスト"
 
 ### テスト（必須）
 
-- [ ] T034 [P] [US2] メディアアップロードと新規作成のユニットテストを追加する in api/tests/test_media_upload.py
-- [ ] T035 [P] [US2] 画像/音声アップロード UI のユニットテストを追加する in web/tests/media_upload.test.tsx
+- [x] T034 [P] [US2] メディアアップロードと新規作成のユニットテストを追加する in api/tests/test_media_upload.py
+- [x] T035 [P] [US2] 画像/音声アップロード UI のユニットテストを追加する in web/tests/media_upload.test.tsx
 
 ### 実装
 
-- [ ] T036 [P] [US2] メディアアップロードサービスを実装する in api/src/services/media_uploader.py
-- [ ] T037 [P] [US2] 番組アートワークアップロード API を実装する in api/src/routers/media.py
-- [ ] T038 [P] [US2] エピソードのアートワーク/音声差し替え API を実装する in api/src/routers/media.py
-- [ ] T039 [P] [US2] 新規エピソード作成 API を実装する in api/src/routers/episodes.py
-- [ ] T040 [US2] メディア URL 反映の RSS ビルダを実装する in api/src/services/rss_builder.py
-- [ ] T041 [P] [US2] アートワークアップロード UI を実装する in web/src/components/artwork-uploader.tsx
-- [ ] T042 [P] [US2] 音声アップロード/差し替え UI を実装する in web/src/components/audio-uploader.tsx
-- [ ] T043 [US2] 新規エピソード作成フォームを実装する in web/src/components/episode-create-form.tsx
+- [x] T036 [P] [US2] メディアアップロードサービスを実装する in api/src/services/media_uploader.py
+- [x] T037 [P] [US2] 番組アートワークアップロード API を実装する in api/src/routers/media.py
+- [x] T038 [P] [US2] エピソードのアートワーク/音声差し替え API を実装する in api/src/routers/media.py
+- [x] T039 [P] [US2] 新規エピソード作成 API を実装する in api/src/routers/episodes.py
+- [x] T040 [US2] メディア URL 反映の RSS ビルダを実装する in api/src/services/rss_builder.py
+- [x] T041 [P] [US2] アートワークアップロード UI を実装する in web/src/components/artwork-uploader.tsx
+- [x] T042 [P] [US2] 音声アップロード/差し替え UI を実装する in web/src/components/audio-uploader.tsx
+- [x] T043 [US2] 新規エピソード作成フォームを実装する in web/src/components/episode-create-form.tsx
 
 **チェックポイント**: ストーリー2が単独で機能・検証可能
 

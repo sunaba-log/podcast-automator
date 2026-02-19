@@ -8,12 +8,12 @@ from pathlib import Path
 from src.config import get_settings
 from src.schemas.rss import RssBackup
 
-BACKUP_DIR = Path("api/data/backups")
+BACKUP_DIR = Path(".data/backups")
 
 
 def create_backup(rss_url: str, raw_xml: str) -> RssBackup:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    backup_id = uuid.uuid4().hex
+    backup_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
     filename = f"{backup_id}.xml"
     backup_path = BACKUP_DIR / filename
     backup_path.write_text(raw_xml, encoding="utf-8")

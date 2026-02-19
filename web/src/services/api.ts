@@ -19,6 +19,8 @@ export type Episode = {
   description: string;
   status: "draft" | "published";
   audioUrl: string;
+  audioSizeBytes?: number | null;
+  audioMimeType?: string | null;
   itunesDuration?: string | null;
   itunesImageUrl?: string | null;
   publishedAt?: string | null;
@@ -35,6 +37,25 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       "Content-Type": "application/json",
       "X-Admin-Password": ADMIN_PASSWORD,
       ...(options.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    const payload = await response
+      .json()
+      .catch(() => ({ message: "Unknown error" }));
+    throw new Error(payload.message || "Request failed");
+  }
+
+  return response.json() as Promise<T>;
+}
+
+async function formRequest<T>(path: string, formData: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    body: formData,
+    headers: {
+      "X-Admin-Password": ADMIN_PASSWORD,
     },
   });
 
@@ -97,4 +118,56 @@ export async function publishRss(
   return request(`/api/podcasts/${podcastId}/rss/publish`, {
     method: "POST",
   });
+}
+
+export async function uploadPodcastArtwork(
+  podcastId: string,
+  file: File,
+): Promise<{ imageUrl: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return formRequest(`/api/podcasts/${podcastId}/artwork`, formData);
+}
+
+export async function uploadEpisodeArtwork(
+  podcastId: string,
+  episodeId: string,
+  file: File,
+): Promise<{ imageUrl: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return formRequest(
+    `/api/podcasts/${podcastId}/episodes/${episodeId}/artwork`,
+    formData,
+  );
+}
+
+export async function uploadEpisodeAudio(
+  podcastId: string,
+  episodeId: string,
+  file: File,
+): Promise<{ audioUrl: string; audioSizeBytes: number }> {
+  const formData = new FormData();
+  formData.append("audioFile", file);
+  return formRequest(
+    `/api/podcasts/${podcastId}/episodes/${episodeId}/audio`,
+    formData,
+  );
+}
+
+export async function createEpisode(
+  podcastId: string,
+  payload: {
+    title: string;
+    description: string;
+    status: "draft" | "published";
+    audioFile: File;
+  },
+): Promise<Episode> {
+  const formData = new FormData();
+  formData.append("title", payload.title);
+  formData.append("description", payload.description);
+  formData.append("status", payload.status);
+  formData.append("audioFile", payload.audioFile);
+  return formRequest(`/api/podcasts/${podcastId}/episodes`, formData);
 }

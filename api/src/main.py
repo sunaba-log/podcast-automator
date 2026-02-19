@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.errors import AppError, app_error_handler
-from src.routers import episodes, feeds, podcasts, rss
+from src.routers import episodes, feeds, media, podcasts, rss
 
 app = FastAPI(title="Podcast UI Editor API", version="0.1.0")
 
@@ -21,4 +21,5 @@ app.add_exception_handler(AppError, app_error_handler)
 app.include_router(feeds.router)
 app.include_router(podcasts.router)
 app.include_router(episodes.router)
+app.include_router(media.router)
 app.include_router(rss.router)

@@ -72,18 +72,50 @@ def _build_episodes(podcast_id: str, entries: Iterable[dict]) -> list[Episode]:
                 except (TypeError, ValueError):
                     audio_size = None
             audio_mime = enclosure.get("type")
+        # iTunesの画像を取得
+        itunes_image = None
+        if entry.get("image"):
+            if isinstance(entry.get("image"), dict):
+                itunes_image = entry.get("image").get("href")
+            elif isinstance(entry.get("image"), str):
+                itunes_image = entry.get("image")
+
+        # シーズンとエピソード番号を取得
+        season = None
+        episode_num = None
+        if entry.get("itunes_season"):
+            try:
+                season = int(entry.get("itunes_season"))
+            except (TypeError, ValueError):
+                pass
+        if entry.get("itunes_episode"):
+            try:
+                episode_num = int(entry.get("itunes_episode"))
+            except (TypeError, ValueError):
+                pass
+
+        # summaryを取得（itunes_summaryが空の場合はsummaryを使用）
+        summary = entry.get("summary", "")
+        itunes_summary = entry.get("itunes_summary") or summary
+
         result.append(
             Episode(
                 id=entry_id,
                 podcastId=podcast_id,
                 title=entry.get("title", ""),
-                description=entry.get("summary", ""),
+                description=summary,
                 status="published",
                 audioUrl=audio_url,
                 audioSizeBytes=audio_size,
                 audioMimeType=audio_mime,
                 itunesDuration=entry.get("itunes_duration"),
-                itunesImageUrl=None,
+                itunesImageUrl=itunes_image,
+                itunesExplicit=entry.get("itunes_explicit") or "no",
+                itunesSummary=itunes_summary,
+                itunesEpisodeType=entry.get("itunes_episodetype"),
+                itunesSeason=season,
+                itunesEpisode=episode_num,
+                dcCreator=entry.get("author"),
                 publishedAt=entry.get("published"),
             )
         )
@@ -125,3 +157,63 @@ def update_episode(podcast_id: str, episode_id: str, payload: dict) -> Episode:
     updated = episode.model_copy(update=payload)
     _STORE.episodes[episode_id] = updated
     return updated
+
+
+def update_podcast_artwork(podcast_id: str, image_url: str) -> Podcast:
+    podcast = get_podcast(podcast_id)
+    updated = podcast.model_copy(update={"itunesImageUrl": image_url})
+    _STORE.podcast = updated
+    return updated
+
+
+def update_episode_artwork(podcast_id: str, episode_id: str, image_url: str) -> Episode:
+    return update_episode(podcast_id, episode_id, {"itunesImageUrl": image_url})
+
+
+def update_episode_audio(
+    podcast_id: str,
+    episode_id: str,
+    audio_url: str,
+    audio_size: int | None,
+    audio_mime: str | None,
+) -> Episode:
+    return update_episode(
+        podcast_id,
+        episode_id,
+        {"audioUrl": audio_url, "audioSizeBytes": audio_size, "audioMimeType": audio_mime},
+    )
+
+
+def create_episode(
+    podcast_id: str,
+    title: str,
+    description: str,
+    status: str,
+    audio_url: str,
+    audio_size: int | None,
+    audio_mime: str | None,
+) -> Episode:
+    if not _STORE.podcast or _STORE.podcast.id != podcast_id:
+        raise AppError("Podcastが見つかりません", status_code=404)
+    episode_id = hashlib.sha1(f"{podcast_id}:{title}:{audio_url}".encode("utf-8")).hexdigest()[:12]
+    episode = Episode(
+        id=episode_id,
+        podcastId=podcast_id,
+        title=title,
+        description=description,
+        status=status,
+        audioUrl=audio_url,
+        audioSizeBytes=audio_size,
+        audioMimeType=audio_mime,
+        itunesDuration=None,
+        itunesImageUrl=None,
+        itunesExplicit=None,
+        itunesSummary=None,
+        itunesEpisodeType=None,
+        itunesSeason=None,
+        itunesEpisode=None,
+        dcCreator=None,
+        publishedAt=None,
+    )
+    _STORE.episodes[episode_id] = episode
+    return episode

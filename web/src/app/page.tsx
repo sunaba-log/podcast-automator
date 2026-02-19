@@ -1,15 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import EpisodeCreateForm from "@/components/episode-create-form";
 import EpisodeFilters from "@/components/episode-filters";
 import EpisodeList from "@/components/episode-list";
 import PodcastEditor from "@/components/podcast-editor";
 import {
   Episode,
   Podcast,
+  createEpisode,
   fetchEpisodes,
   importFeed,
   publishRss,
+  uploadEpisodeAudio,
+  uploadEpisodeArtwork,
+  uploadPodcastArtwork,
   updateEpisode,
   updatePodcast,
 } from "@/services/api";
@@ -81,6 +86,11 @@ export default function HomePage() {
               setPodcast(updated);
               setMessage("番組情報を更新しました。");
             }}
+            onUploadArtwork={async (file) => {
+              if (!podcast) return;
+              await uploadPodcastArtwork(podcast.id, file);
+              setMessage("番組アートワークを更新しました。");
+            }}
           />
 
           <EpisodeFilters
@@ -100,6 +110,32 @@ export default function HomePage() {
               await updateEpisode(podcast.id, episodeId, data);
               await refreshEpisodes();
               setMessage("エピソードを更新しました。");
+            }}
+            onUploadArtwork={async (episodeId, file) => {
+              if (!podcast) return;
+              await uploadEpisodeArtwork(podcast.id, episodeId, file);
+              await refreshEpisodes();
+              setMessage("エピソード画像を更新しました。");
+            }}
+            onUploadAudio={async (episodeId, file) => {
+              if (!podcast) return;
+              await uploadEpisodeAudio(podcast.id, episodeId, file);
+              await refreshEpisodes();
+              setMessage("音声を差し替えました。");
+            }}
+          />
+
+          <EpisodeCreateForm
+            onCreate={async (payload) => {
+              if (!podcast || !payload.audioFile) return;
+              await createEpisode(podcast.id, {
+                title: payload.title,
+                description: payload.description,
+                status: payload.status,
+                audioFile: payload.audioFile,
+              });
+              await refreshEpisodes();
+              setMessage("エピソードを追加しました。");
             }}
           />
 

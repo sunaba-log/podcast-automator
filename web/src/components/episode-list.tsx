@@ -2,13 +2,22 @@
 
 import { useState } from "react";
 import type { Episode } from "@/services/api";
+import ArtworkUploader from "@/components/artwork-uploader";
+import AudioUploader from "@/components/audio-uploader";
 
 type Props = {
   episodes: Episode[];
   onSave: (episodeId: string, data: Partial<Episode>) => Promise<void>;
+  onUploadArtwork: (episodeId: string, file: File) => Promise<void>;
+  onUploadAudio: (episodeId: string, file: File) => Promise<void>;
 };
 
-export default function EpisodeList({ episodes, onSave }: Props) {
+export default function EpisodeList({
+  episodes,
+  onSave,
+  onUploadArtwork,
+  onUploadAudio,
+}: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   return (
@@ -22,6 +31,8 @@ export default function EpisodeList({ episodes, onSave }: Props) {
             await onSave(episode.id, data);
             setPendingId(null);
           }}
+          onUploadArtwork={onUploadArtwork}
+          onUploadAudio={onUploadAudio}
           saving={pendingId === episode.id}
         />
       ))}
@@ -32,10 +43,14 @@ export default function EpisodeList({ episodes, onSave }: Props) {
 function EpisodeCard({
   episode,
   onSave,
+  onUploadArtwork,
+  onUploadAudio,
   saving,
 }: {
   episode: Episode;
   onSave: (data: Partial<Episode>) => Promise<void>;
+  onUploadArtwork: (episodeId: string, file: File) => Promise<void>;
+  onUploadAudio: (episodeId: string, file: File) => Promise<void>;
   saving: boolean;
 }) {
   const [title, setTitle] = useState(episode.title);
@@ -81,6 +96,14 @@ function EpisodeCard({
           <option value="published">公開</option>
         </select>
       </label>
+      <ArtworkUploader
+        label="エピソード画像"
+        onUpload={(file) => onUploadArtwork(episode.id, file)}
+      />
+      <AudioUploader
+        label="音声差し替え"
+        onUpload={(file) => onUploadAudio(episode.id, file)}
+      />
       <button
         className="rounded bg-slate-800 px-3 py-2 text-sm text-white"
         disabled={saving}

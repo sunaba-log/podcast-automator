@@ -2,13 +2,19 @@
 
 import { useState } from "react";
 import type { Podcast } from "@/services/api";
+import ArtworkUploader from "@/components/artwork-uploader";
 
 type Props = {
   podcast: Podcast;
   onSave: (data: Partial<Podcast>) => Promise<void>;
+  onUploadArtwork: (file: File) => Promise<void>;
 };
 
-export default function PodcastEditor({ podcast, onSave }: Props) {
+export default function PodcastEditor({
+  podcast,
+  onSave,
+  onUploadArtwork,
+}: Props) {
   const [title, setTitle] = useState(podcast.title);
   const [description, setDescription] = useState(podcast.description);
   const [saving, setSaving] = useState(false);
@@ -43,6 +49,7 @@ export default function PodcastEditor({ podcast, onSave }: Props) {
           rows={4}
         />
       </label>
+      <ArtworkUploader label="番組アートワーク" onUpload={onUploadArtwork} />
       <button
         type="submit"
         className="rounded bg-blue-600 px-4 py-2 text-sm text-white"

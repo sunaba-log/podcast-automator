@@ -12,7 +12,13 @@ const samplePodcast = {
 describe("PodcastEditor", () => {
   it("edits and saves podcast info", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
-    render(<PodcastEditor podcast={samplePodcast} onSave={onSave} />);
+    render(
+      <PodcastEditor
+        podcast={samplePodcast}
+        onSave={onSave}
+        onUploadArtwork={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
 
     fireEvent.change(screen.getByLabelText("タイトル"), {
       target: { value: "New Title" },
