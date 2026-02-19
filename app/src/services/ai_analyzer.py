@@ -156,7 +156,7 @@ class AudioAnalyzer:
 出力は必ず **JSONのみ** とし、次のスキーマに厳密に従ってください。
 {{
     "title": "キャッチーで分かりやすいエピソードタイトル(200文字以内)",
-    "description": "RSSフィードに適したHTMLタグを**エスケープした**番組紹介文。**生のHTMLタグは使用せず**、&amp;lt; &amp;gt; &amp;amp; で必ずエスケープしてください。段落は&amp;lt;p&amp;gt;...&amp;lt;/p&amp;gt;、強調見出しは&amp;lt;strong&amp;gt;...&amp;lt;/strong&amp;gt;、空行は&amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;で表現してください。"
+    "description": "RSSフィードに適した番組紹介文。HTMLタグは<p>と<br>のみを使用してください。段落は<p>...</p>で囲み、改行は<br>を使用してください。その他のHTMLタグは使用しないでください。"
 }}
 
 制約条件:
@@ -167,9 +167,11 @@ class AudioAnalyzer:
     技術スタックとキーワードは**箇条書き**で列挙すること
     キーワード: 議事録内で扱われたキーワードを**箇条書き**で列挙
   4. about us
+- HTMLタグは<p>と<br>のみを使用すること
+- 見出しは【】で囲んでテキストとして表現すること
 
 descriptionの出力例:
-&amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【エピソード概要】&amp;lt;/strong&amp;gt; &amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【目次】&amp;lt;/strong&amp;gt; &amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;0:00 AAA&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;0:16 BBB&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【関連情報】&amp;lt;/strong&amp;gt; &amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;- GitHub: https://github.com/sunaba-log&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;- 技術スタック: 議事録内で扱われた技術スタックを**箇条書き**で列挙&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;  - 例: GCS&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;- キーワード: 議事録内で扱われたキーワードを**箇条書き**で列挙&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;  - 例: ARグラス&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;&amp;lt;br /&amp;gt;&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;&amp;lt;strong&amp;gt;【about us】&amp;lt;/strong&amp;gt;&amp;lt;/p&amp;gt;&amp;lt;p&amp;gt;sunaba log: 友人同士で週次で雑談しながら「30 days to build」プロジェクトを進行する、雑談発想型プロトタイピング会議録。&amp;lt;/p&amp;gt;
+<p>【エピソード概要】</p><p><br></p><p>【目次】</p><p>0:00 AAA</p><p>0:16 BBB</p><p><br></p><p>【関連情報】</p><p>- GitHub: https://github.com/sunaba-log</p><p>- 技術スタック: 議事録内で扱われた技術スタックを箇条書きで列挙</p><p>  - 例: GCS</p><p>- キーワード: 議事録内で扱われたキーワードを箇条書きで列挙</p><p>  - 例: ARグラス</p><p><br></p><p>【about us】</p><p>sunaba log: 友人同士で週次で雑談しながら「30 days to build」プロジェクトを進行する、雑談発想型プロトタイピング会議録。</p>
 
 --- 以下が議事録です ---
 {transcript}

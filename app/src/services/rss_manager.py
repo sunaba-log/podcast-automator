@@ -1,4 +1,5 @@
 import datetime  # noqa: D100
+import html
 import logging
 import re
 import uuid
@@ -310,8 +311,38 @@ class PodcastRssManager:
                 # 既に CDATA で囲まれていないか確認
                 if "<![CDATA[" in content:
                     return match.group(0)
-                # 内容をエスケープせずに CDATA で囲む
-                return f"<{tag}><![CDATA[{content}]]></{tag}>"
+                # CDATAで囲む場合、エスケープされたHTML実体を元に戻す
+                # feedgenがエスケープしたものを復元
+                unescaped_content = html.unescape(content)
+                # 内容をCDATAで囲む
+                return f"<{tag}><![CDATA[{unescaped_content}]]></{tag}>"
+
+            xml_str = re.sub(pattern, replace_func, xml_str, flags=re.DOTALL)
+
+        return xml_str
+
+    def _escape_xml_in_elements(self, xml_str: str, tags: list[str]) -> str:
+        """指定されたタグの内容のHTMLタグをXMLエスケープします.
+
+        Args:
+            xml_str: RSS XML文字列
+            tags: XMLエスケープするタグ名のリスト(例:['itunes:summary'])
+
+        Returns:
+            HTMLタグがXMLエスケープされた XML 文字列
+        """
+        for tag in tags:
+            # <tag>内容</tag> または <ns:tag>内容</ns:tag> に対応
+            pattern = f"<{re.escape(tag)}>(.+?)</{re.escape(tag)}>"
+
+            def replace_func(match: re.Match, tag: str = tag) -> str:
+                content = match.group(1)
+                # 既にエスケープされている場合はスキップ
+                if "&lt;" in content or "&gt;" in content:
+                    return match.group(0)
+                # HTMLタグと特殊文字をXMLエスケープ
+                escaped_content = html.escape(content, quote=False)
+                return f"<{tag}>{escaped_content}</{tag}>"
 
             xml_str = re.sub(pattern, replace_func, xml_str, flags=re.DOTALL)
 
@@ -738,4 +769,6 @@ class PodcastRssManager:
         rss_str = self.fg.rss_str(pretty=True).decode("utf-8")
         cdata_tags = ["title", "description", "dc:creator", "copyright"]
         rss_str = self._wrap_elements_with_cdata(rss_str, cdata_tags)
+        # itunes:summaryはCDATAで囲わず、HTMLタグをXMLエスケープ
+        rss_str = self._escape_xml_in_elements(rss_str, ["itunes:summary"])
         self.rss_xml = rss_str
