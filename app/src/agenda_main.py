@@ -5,6 +5,7 @@
 
 Phase 1-A: Discord transcript チャンネルから過去議事録を取得し、
            Episode に再構築して AgendaResult を JSON として出力する検証フェーズ。
+Phase 3-C: RSS ニュースを取得し、アジェンダトピックとの関連度でマッチングして通知する。
 """
 
 from __future__ import annotations
@@ -18,6 +19,8 @@ from pathlib import Path
 
 from services.agenda_formatter import format_agenda_message
 from services.discord_fetcher import DiscordFetcher
+from services.news_fetcher import DEFAULT_RSS_SOURCES, NewsFetcher
+from services.news_relevance import NewsCandidate, match_news_to_agenda
 from services.notifier import Notifier
 from services.transcript_analyzer import AgendaResult, TranscriptAnalyzer
 
@@ -41,21 +44,23 @@ AGENDA_MESSAGE = (
 )
 
 
-def _fetch_and_reconstruct() -> tuple[AgendaResult | None, list[str]]:
-    """Discord transcript チャンネルからメッセージを取得して Episode を再構築する.
+def _fetch_and_reconstruct() -> tuple[AgendaResult | None, list[str], list[NewsCandidate]]:
+    """Discord transcript チャンネルからメッセージを取得して Episode を再構築し、ニュースをマッチングする.
 
-    DISCORD_BOT_TOKEN / DISCORD_TRANSCRIPT_CHANNEL_ID が未設定の場合は (None, []) を返す。
+    DISCORD_BOT_TOKEN / DISCORD_TRANSCRIPT_CHANNEL_ID が未設定の場合は (None, [], []) を返す。
+    news fetch / match が失敗した場合は空リストで継続する (non-fatal)。
 
     Returns:
-        (result, warnings) のタプル。
+        (result, warnings, news_candidates) のタプル。
         result: AgendaResult。Bot Token / Channel ID 未設定時は None。
         warnings: reconstruct_episodes() が収集した警告メッセージ。
+        news_candidates: ニュースマッチング結果。取得失敗時は空リスト。
     """
     if not _DISCORD_BOT_TOKEN or not _DISCORD_TRANSCRIPT_CHANNEL_ID:
         logger.info(
             "DISCORD_BOT_TOKEN / DISCORD_TRANSCRIPT_CHANNEL_ID が未設定のため transcript 取得をスキップします。",
         )
-        return None, []
+        return None, [], []
 
     fetcher = DiscordFetcher(bot_token=_DISCORD_BOT_TOKEN)
     messages = fetcher.fetch_messages(
@@ -95,7 +100,19 @@ def _fetch_and_reconstruct() -> tuple[AgendaResult | None, list[str]]:
         analysis_window_size=_TRANSCRIPT_FETCH_LIMIT,
         fetched_message_count=len(messages),
     )
-    return result, warnings
+
+    # Phase 3-C: RSS ニュース取得 → アジェンダトピックとのマッチング
+    # fetch / match の失敗は non-fatal: 空リストで継続し Discord 投稿はそのまま行う。
+    news_candidates: list[NewsCandidate] = []
+    try:
+        news_items = NewsFetcher().fetch_all(DEFAULT_RSS_SOURCES)
+        logger.info("Fetched %d news items from RSS.", len(news_items))
+        news_candidates = match_news_to_agenda(news_items, result)
+        logger.info("Matched %d news candidates.", len(news_candidates))
+    except Exception:  # noqa: BLE001
+        logger.warning("News fetch/match failed. Continuing without news.", exc_info=True)
+
+    return result, warnings, news_candidates
 
 
 def _export_debug_json(result: AgendaResult, path: str) -> None:
@@ -125,11 +142,12 @@ def send_weekly_agenda() -> None:
 
     logger.info("DISCORD_WEBHOOK_AGENDA_URL configured: %s", bool(DISCORD_WEBHOOK_AGENDA_URL))
 
-    # Phase 1-A: transcript 取得・Episode 再構築
+    # transcript 取得・Episode 再構築・ニュースマッチング
     # 失敗しても reminder 通知自体は継続するため try/except で隔離する
     result: AgendaResult | None = None
+    news_candidates: list[NewsCandidate] = []
     try:
-        result, _warnings = _fetch_and_reconstruct()
+        result, _warnings, news_candidates = _fetch_and_reconstruct()
     except Exception:
         logger.exception("Transcript analysis failed. Falling back to fixed-message notification.")
 
@@ -142,7 +160,7 @@ def send_weekly_agenda() -> None:
         )
         if _DEBUG_JSON_PATH:
             _export_debug_json(result, _DEBUG_JSON_PATH)
-        message = format_agenda_message(result)
+        message = format_agenda_message(result, news_candidates=news_candidates)
     else:
         # transcript analysis がスキップまたは失敗した場合は固定文に fallback
         message = AGENDA_MESSAGE
