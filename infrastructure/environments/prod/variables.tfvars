@@ -5,6 +5,7 @@ gcs_force_destroy                 = false
 gcs_retention_days                = 30
 discord_webhook_info_secret_name  = "discord-webhook-url-prod-info"
 discord_webhook_error_secret_name = "discord-webhook-url-prod-error"
+discord_webhook_agenda_secret_name = "discord-webhook-url-prod-agenda"
 cloudflare_account_id             = "8ed20f6872cea7c9219d68bfcf5f98ae"
 cloudflare_zone_name              = "sunabalog.com"
 r2_bucket_name                    = "podcast"

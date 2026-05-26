@@ -95,3 +95,8 @@ variable "r2_subdomain" {
   type        = string
   description = "Subdomain part for the custom domain (e.g., dev.podcast)."
 }
+
+variable "discord_webhook_agenda_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for Discord agenda webhook URL."
+}
