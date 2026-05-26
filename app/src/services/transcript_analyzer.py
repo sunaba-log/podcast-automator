@@ -349,6 +349,45 @@ _EPISODE_BOUNDARY_RE: re.Pattern[str] = re.compile(
     re.MULTILINE,
 )
 
+# podcast automator bot が投稿するメタデータ行のパターン。
+# extractor 側で弾くことで episode.content raw data は保持する。
+_METADATA_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"^New Podcast Processed", re.IGNORECASE),
+    re.compile(r"^Description\s*:"),
+    re.compile(r"^Title\s*:"),
+    re.compile(r"^URL\s*:"),
+    re.compile(r"^https?://"),
+]
+
+# 英語アクションキーワードの word-boundary パターン。
+# 'fix' が 'prefix' / 'fixing' などにヒットする substring match を防ぐ。
+_ACTION_WORD_BOUNDARY_RE: re.Pattern[str] = re.compile(
+    r"\b(fix|investigate|todo)\b",
+    re.IGNORECASE,
+)
+
+# 日本語アクションキーワード (substring match が適切)。
+# ACTION_KEYWORDS から英語分を除いたサブセット。
+_ACTION_KEYWORDS_JP: tuple[str, ...] = (
+    "やること",
+    "対応する",
+    "対応します",
+    "確認する",
+    "確認します",
+    "確認が必要",
+    "検討する",
+    "検討が必要",
+    "実装する",
+    "修正する",
+    "しておく",
+    "しなければ",
+    "必要がある",
+)
+
+# Discord markdown の行頭マーカー (bullet / blockquote) を除去するパターン。
+# ActionItem.text から * / - / > プレフィックスを取り除いて可読性を上げる。
+_MARKDOWN_STRIP_RE: re.Pattern[str] = re.compile(r"^[-*>]+\s*")
+
 
 # ── TranscriptAnalyzer ────────────────────────────────────────────────────────
 
@@ -587,7 +626,7 @@ class TranscriptAnalyzer:
         """
         return [
             ActionItem(
-                text=line.strip()[:200],
+                text=_MARKDOWN_STRIP_RE.sub("", line.strip())[:200],
                 source_episode=episode.number,
             )
             for episode in episodes
@@ -660,7 +699,10 @@ class TranscriptAnalyzer:
 
         PROMPT_PATTERNS の定義順(優先順位順)に評価し、
         最初にマッチした PromptType を返す。マッチなしは None。
+        metadata 行・短すぎる行は _is_noise_line() で事前に除外する。
         """
+        if self._is_noise_line(sentence):
+            return None
         for prompt_type, patterns in PROMPT_PATTERNS.items():
             for pattern in patterns:
                 if re.search(pattern, sentence):
@@ -670,14 +712,36 @@ class TranscriptAnalyzer:
     def _is_action_line(self, line: str) -> bool:
         """ACTION_KEYWORDS のいずれかを含む行かどうかを返す.
 
-        英語キーワード (fix, investigate, TODO) は case-insensitive で比較する。
-        日本語キーワードは大文字小文字の概念がないためそのまま比較する。
+        英語キーワード (fix, investigate, todo) は word-boundary regex で比較し、
+        'prefix' / 'fixing' などへの誤マッチを防ぐ。
+        日本語キーワードは大文字小文字の概念がないためそのまま substring で比較する。
+        metadata 行・短すぎる行は _is_noise_line() で事前に除外する。
         """
         stripped = line.strip()
         if not stripped:
             return False
-        line_lower = stripped.lower()
-        return any(kw.lower() in line_lower for kw in ACTION_KEYWORDS)
+        if self._is_noise_line(stripped):
+            return False
+        if _ACTION_WORD_BOUNDARY_RE.search(stripped):
+            return True
+        return any(kw in stripped for kw in _ACTION_KEYWORDS_JP)
+
+    def _is_noise_line(self, line: str) -> bool:
+        """ノイズ行(metadata・短すぎる行)かどうかを返す.
+
+        action item / discussion prompt の extractor が共通して呼ぶ negative filter。
+        episode.content の raw data は変更せず、extractor 側で除外することで
+        将来の LLM ベース解析に備えて raw transcript を保持する。
+
+        Args:
+            line: strip 済みの行文字列。
+
+        Returns:
+            True の場合はノイズとして除外すべき行。
+        """
+        if len(line) < 7:  # noqa: PLR2004
+            return True
+        return any(pat.search(line) for pat in _METADATA_PATTERNS)
 
     # ── プライベートヘルパー ───────────────────────────────────────────────────
 
