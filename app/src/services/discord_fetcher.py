@@ -36,8 +36,9 @@ class DiscordFetcher:
         Args:
             bot_token: Discord Bot Token。"Bot " プレフィックスは自動で付与する。
         """
+        # strip() で Secret Manager 経由の trailing newline など余分な空白を除去する
         self._headers = {
-            "Authorization": f"Bot {bot_token}",
+            "Authorization": f"Bot {bot_token.strip()}",
             "Content-Type": "application/json",
         }
 
