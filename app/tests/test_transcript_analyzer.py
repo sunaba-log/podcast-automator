@@ -116,7 +116,7 @@ class TestReconstructEpisodes:
             _msg(msg_id="1", content="#5 Meeting Transcript:\nEp5", timestamp="2024-01-01T00:00:00Z"),
             _msg(msg_id="2", content="#3 Meeting Transcript:\nEp3", timestamp="2024-01-08T00:00:00Z"),
         ]
-        episodes, warnings = analyzer.reconstruct_episodes(messages, strict=False)
+        _episodes, warnings = analyzer.reconstruct_episodes(messages, strict=False)
 
         assert len(warnings) == 1
         assert "regression" in warnings[0].lower()
@@ -140,7 +140,7 @@ class TestReconstructEpisodes:
             _msg(msg_id="1", content="#1 Meeting Transcript:\nContent", timestamp="2024-01-01T00:00:00Z", author_name="bot"),
             _msg(msg_id="2", content="continuation", timestamp="2024-01-01T00:01:00Z", author_name="someone_else"),
         ]
-        episodes, warnings = analyzer.reconstruct_episodes(messages)
+        _episodes, warnings = analyzer.reconstruct_episodes(messages)
 
         assert len(warnings) == 1
         assert "Unexpected author" in warnings[0]
