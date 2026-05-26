@@ -286,15 +286,22 @@ DEFAULT_SEED_TOPICS: list[SeedTopic] = [
 ]
 
 ACTION_KEYWORDS: list[str] = [
-    "次回",
-    "やること",
+    # English explicit markers (case-sensitive)
     "TODO",
-    "todo",
+    "TODO:",
+    "fix",
+    "investigate",
+    # Japanese explicit markers
+    "やること",
+    "対応する",
+    "対応します",
     "確認する",
+    "確認します",
+    "確認が必要",
     "検討する",
+    "検討が必要",
     "実装する",
     "修正する",
-    "作る",
     "しておく",
     "しなければ",
     "必要がある",
@@ -515,6 +522,158 @@ class TranscriptAnalyzer:
             action_items=sorted_items,
             discussion_prompts=sorted_prompts,
         )
+
+    # ── 公開メソッド (Phase 1-B) ─────────────────────────────────────────────
+
+    def extract_recurring_themes(
+        self,
+        episodes: list[Episode],
+    ) -> list[TopicMatch]:
+        """エピソード群から繰り返し登場するトピックを抽出する.
+
+        precision 優先: seed topic の keyword を line-level で包含チェックする。
+        score は mention_count の単純カウント (Phase 1-B)。
+
+        Args:
+            episodes: 分析対象の Episode リスト。
+
+        Returns:
+            1 件以上マッチした TopicMatch のリスト (mention_count 降順)。
+        """
+        results: list[TopicMatch] = []
+        for topic in self._seed_topics:
+            all_evidence: list[MentionEvidence] = []
+            matched_episodes: set[int] = set()
+
+            for episode in episodes:
+                evidence = self._match_topic_in_episode(episode, topic)
+                if evidence:
+                    matched_episodes.add(episode.number)
+                    all_evidence.extend(evidence)
+
+            if not all_evidence:
+                continue
+
+            results.append(
+                TopicMatch(
+                    topic_id=topic.id,
+                    display_name=topic.name,
+                    episode_count=len(matched_episodes),
+                    mention_count=len(all_evidence),
+                    evidence=all_evidence[:3],
+                    score=float(len(all_evidence)),
+                )
+            )
+
+        return sorted(results, key=lambda t: -t.mention_count)
+
+    def extract_action_items(
+        self,
+        episodes: list[Episode],
+    ) -> list[ActionItem]:
+        """エピソード群から明示的なアクションアイテムを抽出する.
+
+        precision 優先: ACTION_KEYWORDS の line-level 包含チェックのみ実施する。
+
+        Args:
+            episodes: 分析対象の Episode リスト。
+
+        Returns:
+            抽出した ActionItem のリスト (古いエピソード順)。
+        """
+        return [
+            ActionItem(
+                text=line.strip()[:200],
+                source_episode=episode.number,
+            )
+            for episode in episodes
+            for line in episode.content.splitlines()
+            if self._is_action_line(line)
+        ]
+
+    def extract_discussion_prompts(
+        self,
+        episodes: list[Episode],
+    ) -> list[DiscussionPrompt]:
+        """エピソード群から未解決論点の候補となる文を抽出する.
+
+        PROMPT_PATTERNS を定義順(優先順位順)に評価し、
+        最初にマッチした PromptType を採用する。
+
+        Args:
+            episodes: 分析対象の Episode リスト。
+
+        Returns:
+            抽出した DiscussionPrompt のリスト。
+        """
+        prompts: list[DiscussionPrompt] = []
+        for episode in episodes:
+            for sentence in self._split_into_sentences(episode.content):
+                prompt_type = self._classify_sentence(sentence)
+                if prompt_type is not None:
+                    prompts.append(
+                        DiscussionPrompt(
+                            sentence=sentence[:200],
+                            prompt_type=prompt_type,
+                            source_episode=episode.number,
+                        )
+                    )
+        return prompts
+
+    # ── プライベートヘルパー (Phase 1-B) ─────────────────────────────────────
+
+    def _match_topic_in_episode(
+        self,
+        episode: Episode,
+        topic: SeedTopic,
+    ) -> list[MentionEvidence]:
+        """エピソード内で seed topic のキーワードがマッチした行を MentionEvidence として返す."""
+        evidence: list[MentionEvidence] = []
+        for line_idx, line in enumerate(episode.content.splitlines()):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if any(kw in stripped for kw in topic.keywords):
+                evidence.append(
+                    MentionEvidence(
+                        source_episode=episode.number,
+                        text=stripped[:100],
+                        sentence_index=line_idx,
+                    )
+                )
+        return evidence
+
+    def _split_into_sentences(self, text: str) -> list[str]:
+        """テキストを行単位の sentence リストに分割する (rule-based).
+
+        各行を 1 sentence として扱う。URL やファイル名を誤分割しないよう
+        ASCII ピリオドでは分割しない。重い NLP ライブラリは使用しない。
+        """
+        return [line.strip() for line in text.splitlines() if line.strip()]
+
+    def _classify_sentence(self, sentence: str) -> PromptType | None:
+        """文を PROMPT_PATTERNS で分類する.
+
+        PROMPT_PATTERNS の定義順(優先順位順)に評価し、
+        最初にマッチした PromptType を返す。マッチなしは None。
+        """
+        for prompt_type, patterns in PROMPT_PATTERNS.items():
+            for pattern in patterns:
+                if re.search(pattern, sentence):
+                    return prompt_type
+        return None
+
+    def _is_action_line(self, line: str) -> bool:
+        """ACTION_KEYWORDS のいずれかを含む行かどうかを返す.
+
+        英語キーワード (fix, investigate, TODO) は case-insensitive で比較する。
+        日本語キーワードは大文字小文字の概念がないためそのまま比較する。
+        """
+        stripped = line.strip()
+        if not stripped:
+            return False
+        line_lower = stripped.lower()
+        return any(kw.lower() in line_lower for kw in ACTION_KEYWORDS)
 
     # ── プライベートヘルパー ───────────────────────────────────────────────────
 

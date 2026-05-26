@@ -73,12 +73,23 @@ def _fetch_and_reconstruct() -> tuple[AgendaResult | None, list[str]]:
     for w in warnings:
         logger.warning("  [transcript] %s", w)
 
+    # Phase 1-B: rule-based extraction (no LLM, no external API)
+    recurring_themes = analyzer.extract_recurring_themes(episodes)
+    action_items = analyzer.extract_action_items(episodes)
+    discussion_prompts = analyzer.extract_discussion_prompts(episodes)
+    logger.info(
+        "Extracted: themes=%d, action_items=%d, prompts=%d.",
+        len(recurring_themes),
+        len(action_items),
+        len(discussion_prompts),
+    )
+
     generated_at = datetime.now(UTC).isoformat()
     result = analyzer.build_agenda(
         episodes=episodes,
-        recurring_themes=[],
-        action_items=[],
-        discussion_prompts=[],
+        recurring_themes=recurring_themes,
+        action_items=action_items,
+        discussion_prompts=discussion_prompts,
         generated_at=generated_at,
         analysis_window_size=_TRANSCRIPT_FETCH_LIMIT,
         fetched_message_count=len(messages),
