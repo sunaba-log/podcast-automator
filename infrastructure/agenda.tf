@@ -44,13 +44,17 @@ resource "google_cloud_run_v2_job" "agenda" {
         }
 
         # Discord Bot Token (read-only): transcript チャンネルからメッセージ取得に使用
-        # 未設定 (空文字列) の場合は transcript 取得をスキップし固定文 fallback へ移行
-        env {
-          name = "DISCORD_BOT_TOKEN"
-          value_source {
-            secret_key_ref {
-              secret  = var.discord_bot_token_secret_name
-              version = "latest"
+        # discord_bot_token_secret_name が空文字列の場合はブロックごと省略し Secret を参照しない
+        # (シークレット未作成の環境でも apply 可能にするための guard)
+        dynamic "env" {
+          for_each = var.discord_bot_token_secret_name != "" ? [1] : []
+          content {
+            name = "DISCORD_BOT_TOKEN"
+            value_source {
+              secret_key_ref {
+                secret  = var.discord_bot_token_secret_name
+                version = "latest"
+              }
             }
           }
         }

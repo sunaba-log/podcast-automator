@@ -103,7 +103,8 @@ variable "discord_webhook_agenda_secret_name" {
 
 variable "discord_bot_token_secret_name" {
   type        = string
-  description = "Secret Manager secret name for Discord Bot Token (read-only, used for transcript channel access)."
+  description = "Secret Manager secret name for Discord Bot Token (read-only, used for transcript channel access). Empty string disables the env injection."
+  default     = ""
 }
 
 variable "discord_transcript_channel_id" {
