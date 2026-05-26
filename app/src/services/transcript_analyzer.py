@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -141,6 +141,9 @@ class TopicMatch:
 
     score: float | None = None
     """Phase 1 は None。Phase 2+ でランキングスコアとして使用する。"""
+
+    keywords: list[str] = field(default_factory=list)
+    """SeedTopic.keywords から転写したキーワード群。Phase 3-B のニュース関連度計算で使用する。"""
 
 
 # ── ActionItem ─────────────────────────────────────────────────────────────────
@@ -562,6 +565,7 @@ class TranscriptAnalyzer:
                     mention_count=len(all_evidence),
                     evidence=all_evidence[:3],
                     score=float(len(all_evidence)),
+                    keywords=topic.keywords,
                 )
             )
 
