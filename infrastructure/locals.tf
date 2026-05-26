@@ -4,6 +4,7 @@ locals {
     "cloudscheduler.googleapis.com",
     "compute.googleapis.com",
     "eventarc.googleapis.com",
+    "iam.googleapis.com",
     "logging.googleapis.com",
     "pubsub.googleapis.com",
     "run.googleapis.com",
