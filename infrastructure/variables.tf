@@ -100,3 +100,14 @@ variable "discord_webhook_agenda_secret_name" {
   type        = string
   description = "Secret Manager secret name for Discord agenda webhook URL."
 }
+
+variable "discord_bot_token_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for Discord Bot Token (read-only, used for transcript channel access)."
+}
+
+variable "discord_transcript_channel_id" {
+  type        = string
+  description = "Discord channel ID for meeting transcripts. Empty string disables transcript fetch and preserves fallback path."
+  default     = ""
+}
