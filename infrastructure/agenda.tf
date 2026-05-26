@@ -42,6 +42,25 @@ resource "google_cloud_run_v2_job" "agenda" {
             }
           }
         }
+
+        # Discord Bot Token (read-only): transcript チャンネルからメッセージ取得に使用
+        # 未設定 (空文字列) の場合は transcript 取得をスキップし固定文 fallback へ移行
+        env {
+          name = "DISCORD_BOT_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = var.discord_bot_token_secret_name
+              version = "latest"
+            }
+          }
+        }
+
+        # Discord transcript チャンネル ID (plain env var)
+        # 空文字列の場合は transcript 取得をスキップ (fallback path を維持)
+        env {
+          name  = "DISCORD_TRANSCRIPT_CHANNEL_ID"
+          value = var.discord_transcript_channel_id
+        }
       }
     }
   }
