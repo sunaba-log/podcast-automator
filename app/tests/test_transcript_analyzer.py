@@ -493,6 +493,325 @@ class TestExtractDiscussionPrompts:
         assert prompts == []
 
 
+class TestIsNoiseLine:
+    """_is_noise_line() ヘルパーのテストクラス."""
+
+    def test_short_line_is_noise(self):
+        """7 文字未満の行がノイズ判定されること."""
+        analyzer = TranscriptAnalyzer()
+        assert analyzer._is_noise_line("fix") is True  # 3 chars
+        assert analyzer._is_noise_line("URL:") is True  # 4 chars
+        assert analyzer._is_noise_line("abc") is True  # 3 chars
+
+    def test_description_prefix_is_noise(self):
+        """'Description:' で始まる行がノイズ判定されること."""
+        analyzer = TranscriptAnalyzer()
+        assert analyzer._is_noise_line("Description: <p>今後の方針を検討する</p>") is True
+        assert analyzer._is_noise_line("Description:<p>text</p>") is True
+
+    def test_title_prefix_is_noise(self):
+        """'Title:' で始まる行がノイズ判定されること."""
+        analyzer = TranscriptAnalyzer()
+        assert analyzer._is_noise_line("Title: Episode #22 - 設計回") is True
+
+    def test_url_prefix_is_noise(self):
+        """'URL:' で始まる行がノイズ判定されること."""
+        analyzer = TranscriptAnalyzer()
+        assert analyzer._is_noise_line("URL: https://example.com/episode/42") is True
+
+    def test_https_standalone_is_noise(self):
+        """'https://' で始まる行がノイズ判定されること."""
+        analyzer = TranscriptAnalyzer()
+        assert analyzer._is_noise_line("https://example.com/episode/42?utm_source=rss") is True
+
+    def test_new_podcast_processed_is_noise(self):
+        """'New Podcast Processed' で始まる行がノイズ判定されること."""
+        analyzer = TranscriptAnalyzer()
+        assert analyzer._is_noise_line("New Podcast Processed") is True
+
+    def test_normal_long_sentence_is_not_noise(self):
+        """通常の議論行(7 文字以上・metadata なし)がノイズ判定されないこと."""
+        analyzer = TranscriptAnalyzer()
+        assert analyzer._is_noise_line("このアーキテクチャはどう実装すべきか?") is False
+        assert analyzer._is_noise_line("Terraform の設定を見直した。") is False
+
+    def test_9char_sentence_is_not_noise(self):
+        """9 文字の文(7 文字閾値の境界値)がノイズ判定されないこと."""
+        analyzer = TranscriptAnalyzer()
+        # "どう設計すべきか?" = 9 chars — 既存テストの sentinel 値
+        assert analyzer._is_noise_line("どう設計すべきか?") is False
+
+
+class TestActionItemWordBoundary:
+    """action item の word-boundary マッチングのテストクラス."""
+
+    def test_fix_does_not_match_prefix(self):
+        """'prefix' に 'fix' の word-boundary マッチが発生しないこと."""
+        content = "#1 Meeting Transcript:\nprefixをコンポーネントに設定する。これは prefix 方式で動作する。"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert items == []
+
+    def test_fix_does_not_match_fixing(self):
+        """'fixing' に 'fix' の word-boundary マッチが発生しないこと."""
+        content = "#1 Meeting Transcript:\nWe are fixing the deploy pipeline issues."
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert items == []
+
+    def test_fix_matches_standalone_word(self):
+        """'fix' が単語として現れた場合にアクションアイテムとして抽出されること."""
+        content = "#1 Meeting Transcript:\nfix: the deploy script before next release."
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert len(items) == 1
+
+    def test_fix_matches_with_colon(self):
+        """'Fix:' 形式でもアクションアイテムとして抽出されること."""
+        content = "#1 Meeting Transcript:\nFix: API のレスポンス遅延を修正する。"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert len(items) == 1
+
+    def test_investigate_does_not_match_reinvestigate(self):
+        """'reinvestigate' に 'investigate' の word-boundary マッチが発生しないこと."""
+        content = "#1 Meeting Transcript:\nWe may need to reinvestigate the root cause later."
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert items == []
+
+    def test_todo_matches_with_colon(self):
+        """'TODO:' 形式でもアクションアイテムとして抽出されること."""
+        content = "#1 Meeting Transcript:\nTODO: Cloud Scheduler の設定を確認する"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert len(items) == 1
+
+
+class TestActionItemMarkdownStrip:
+    """ActionItem.text の markdown marker strip のテストクラス."""
+
+    def test_bullet_asterisk_stripped(self):
+        """'* keyword' の leading '* ' が ActionItem.text から除去されること."""
+        content = "#1 Meeting Transcript:\n* TODO: Cloud Scheduler の設定を確認する"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert len(items) == 1
+        assert not items[0].text.startswith("*")
+        assert "TODO" in items[0].text
+
+    def test_bullet_dash_stripped(self):
+        """'- keyword' の leading '- ' が ActionItem.text から除去されること."""
+        content = "#1 Meeting Transcript:\n- 対応する: Webhook URL を更新する"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert len(items) == 1
+        assert not items[0].text.startswith("-")
+
+    def test_blockquote_marker_stripped(self):
+        """'> keyword' の leading '> ' が ActionItem.text から除去されること."""
+        content = "#1 Meeting Transcript:\n> 確認する: GCP の billing を見直す"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert len(items) == 1
+        assert not items[0].text.startswith(">")
+
+    def test_no_marker_line_text_unchanged(self):
+        """markdown marker のない行は変更されないこと."""
+        content = "#1 Meeting Transcript:\nTODO: Cloud Scheduler の設定を確認する"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert len(items) == 1
+        assert items[0].text.startswith("TODO:")
+
+
+class TestExtractorNoiseFiltering:
+    """metadata ノイズが action_items / discussion_prompts から除外されること."""
+
+    def test_description_html_excluded_from_action_items(self):
+        """'Description: <p>...' 行が action_items に含まれないこと."""
+        content = "#1 Meeting Transcript:\nDescription: <p>今後の方針を検討する必要があります</p>"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert items == []
+
+    def test_description_html_excluded_from_prompts(self):
+        """'Description: <p>...' 行が discussion_prompts に含まれないこと."""
+        content = "#1 Meeting Transcript:\nDescription: <p>今後の方針を検討する必要があります</p>"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        prompts = analyzer.extract_discussion_prompts(episodes)
+
+        assert prompts == []
+
+    def test_url_line_excluded_from_action_items(self):
+        """'URL:' 行が action_items に含まれないこと."""
+        content = "#1 Meeting Transcript:\nURL: https://example.com/episode/42"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert items == []
+
+    def test_url_line_excluded_from_prompts(self):
+        """'URL:' 行が discussion_prompts に含まれないこと."""
+        content = "#1 Meeting Transcript:\nURL: https://example.com/episode/42"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        prompts = analyzer.extract_discussion_prompts(episodes)
+
+        assert prompts == []
+
+    def test_standalone_https_excluded_from_prompts(self):
+        """'https://...' 行が discussion_prompts に含まれないこと."""
+        content = "#1 Meeting Transcript:\nhttps://podcast.example.com/ep/42?utm_source=rss"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        prompts = analyzer.extract_discussion_prompts(episodes)
+
+        assert prompts == []
+
+    def test_new_podcast_processed_excluded_from_prompts(self):
+        """'New Podcast Processed' 行が discussion_prompts に含まれないこと."""
+        content = "#1 Meeting Transcript:\nNew Podcast Processed"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        prompts = analyzer.extract_discussion_prompts(episodes)
+
+        assert prompts == []
+
+    def test_new_podcast_processed_excluded_from_action_items(self):
+        """'New Podcast Processed' 行が action_items に含まれないこと."""
+        content = "#1 Meeting Transcript:\nNew Podcast Processed"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+
+        assert items == []
+
+    def test_mixed_metadata_and_real_content(self):
+        """metadata ノイズと実コンテンツが混在しても実コンテンツだけ抽出されること."""
+        content = (
+            "#22 Meeting Transcript:\n"
+            "New Podcast Processed\n"
+            "Description: <p>今後の方針を確認する必要があります</p>\n"
+            "URL: https://example.com/episode/22\n"
+            "TODO: Cloud Scheduler の設定を確認する\n"
+            "アーキテクチャの方針はどう設計すべきか?"
+        )
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        items = analyzer.extract_action_items(episodes)
+        prompts = analyzer.extract_discussion_prompts(episodes)
+
+        # metadata は除外され、実コンテンツのみ抽出される
+        assert len(items) == 1
+        assert "TODO" in items[0].text
+        assert all("Description" not in item.text for item in items)
+        assert all("URL" not in item.text for item in items)
+        assert all("New Podcast" not in item.text for item in items)
+        assert len(prompts) >= 1
+        assert any(p.prompt_type == PromptType.design_decision for p in prompts)
+
+    def test_prompts_count_reduced_vs_noisy_baseline(self):
+        """metadata を含む episode でも noise 除去後の prompts 件数が合理的範囲に収まること."""
+        # metadata ノイズを多数含む content
+        content = (
+            "#22 Meeting Transcript:\n"
+            "New Podcast Processed\n"
+            "Description: <p>今後の方針を検討する。将来的な設計方針はどうするか</p>\n"
+            "URL: https://example.com/episode/22\n"
+            "https://another-link.com/episode?utm_source=rss\n"
+            # 実コンテンツ
+            "AI / LLM を活用したアジェンダ生成を今後進めたい。\n"
+            "アーキテクチャの設計はどう実装すべきか?\n"
+        )
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        prompts = analyzer.extract_discussion_prompts(episodes)
+
+        # metadata 行は除外されるため、実コンテンツ由来のみ: 最大 2 件程度
+        assert len(prompts) <= 3
+
+
+class TestDiscussionPromptNoiseFiltering:
+    """discussion_prompts の noise guard / minimum length テストクラス."""
+
+    def test_very_short_sentence_not_extracted(self):
+        """6 文字以下の文(閾値未満)が discussion_prompt に含まれないこと."""
+        # "設計?" = 3 chars → noise
+        content = "#1 Meeting Transcript:\n設計?"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        prompts = analyzer.extract_discussion_prompts(episodes)
+
+        assert prompts == []
+
+    def test_9char_uncertain_sentence_is_extracted(self):
+        """9 文字の文(閾値以上)が正しく抽出されること."""
+        # "どう設計すべきか?" = 9 chars — 7 文字閾値をちょうど超える
+        content = "#1 Meeting Transcript:\nどう設計すべきか?"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        prompts = analyzer.extract_discussion_prompts(episodes)
+
+        assert len(prompts) >= 1
+
+    def test_normal_uncertain_sentence_extracted(self):
+        """11 文字以上の uncertain 行が正しく抽出されること."""
+        # "詳細はまだ検討中です。" = 11 chars
+        content = "#1 Meeting Transcript:\n詳細はまだ検討中です。"
+        episodes = _make_episodes_from_content(content)
+        analyzer = TranscriptAnalyzer()
+
+        prompts = analyzer.extract_discussion_prompts(episodes)
+
+        assert any(p.prompt_type == PromptType.uncertain for p in prompts)
+
+
 class TestPhase1BIntegration:
     """Phase 1-B 全体パイプラインの integration テスト."""
 
