@@ -19,7 +19,7 @@ DISCORD_WEBHOOK_AGENDA_URL = os.environ.get("DISCORD_WEBHOOK_AGENDA_URL")
 
 AGENDA_MESSAGE = (
     "📅 **今週の収録リマインダー**\n\n"
-    "今週のポッドキャスト収録の準備はできていますか？\n\n"
+    "今週のポッドキャスト収録の準備はできていますか?\n\n"
     "収録後は音声ファイルを GCS にアップロードしてください 🎙️"
 )
 
