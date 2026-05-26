@@ -88,3 +88,17 @@ resource "google_storage_bucket_iam_member" "aiplatform_gcs_read" {
 
   depends_on = [google_project_service.required]
 }
+
+# Cloud Scheduler サービスエージェントが compute SA の OAuth2 アクセストークンを生成できるよう許可
+# これにより Cloud Scheduler が http_target の oauth_token で compute SA を使って
+# Cloud Run Jobs Admin API (run.googleapis.com) を呼び出せるようになる
+resource "google_service_account_iam_member" "cloud_scheduler_sa_token_creator" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${local.default_compute_service_account}"
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_project_service_identity.cloudscheduler.email}"
+
+  depends_on = [
+    google_project_service.required,
+    google_project_service_identity.cloudscheduler,
+  ]
+}

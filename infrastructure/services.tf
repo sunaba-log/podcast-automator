@@ -10,3 +10,9 @@ resource "google_project_service_identity" "eventarc" {
   service    = "eventarc.googleapis.com"
   depends_on = [google_project_service.required]
 }
+
+resource "google_project_service_identity" "cloudscheduler" {
+  provider   = google-beta
+  service    = "cloudscheduler.googleapis.com"
+  depends_on = [google_project_service.required]
+}
