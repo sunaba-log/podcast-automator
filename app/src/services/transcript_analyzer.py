@@ -356,9 +356,7 @@ class TranscriptAnalyzer:
         Args:
             seed_topics: 使用する seed topics。None の場合は DEFAULT_SEED_TOPICS を使用する。
         """
-        self._seed_topics: list[SeedTopic] = (
-            seed_topics if seed_topics is not None else DEFAULT_SEED_TOPICS
-        )
+        self._seed_topics: list[SeedTopic] = seed_topics if seed_topics is not None else DEFAULT_SEED_TOPICS
 
     # ── 公開メソッド ───────────────────────────────────────────────────────────
 
@@ -445,9 +443,7 @@ class TranscriptAnalyzer:
 
             else:
                 # エピソード境界が確立される前の孤立メッセージ
-                warning = (
-                    f"Skipping orphan message id={msg.id}: no episode boundary established"
-                )
+                warning = f"Skipping orphan message id={msg.id}: no episode boundary established"
                 if strict:
                     raise TranscriptBoundaryError(warning, offending_message_id=msg.id)
                 warnings.append(warning)

@@ -52,8 +52,7 @@ def _fetch_and_reconstruct() -> tuple[AgendaResult | None, list[str]]:
     """
     if not _DISCORD_BOT_TOKEN or not _DISCORD_TRANSCRIPT_CHANNEL_ID:
         logger.info(
-            "DISCORD_BOT_TOKEN / DISCORD_TRANSCRIPT_CHANNEL_ID が未設定のため"
-            " transcript 取得をスキップします。",
+            "DISCORD_BOT_TOKEN / DISCORD_TRANSCRIPT_CHANNEL_ID が未設定のため transcript 取得をスキップします。",
         )
         return None, []
 

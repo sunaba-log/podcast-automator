@@ -137,7 +137,12 @@ class TestReconstructEpisodes:
         """continuation メッセージの author が境界メッセージと異なる場合に警告が出ること."""
         analyzer = TranscriptAnalyzer()
         messages = [
-            _msg(msg_id="1", content="#1 Meeting Transcript:\nContent", timestamp="2024-01-01T00:00:00Z", author_name="bot"),
+            _msg(
+                msg_id="1",
+                content="#1 Meeting Transcript:\nContent",
+                timestamp="2024-01-01T00:00:00Z",
+                author_name="bot",
+            ),
             _msg(msg_id="2", content="continuation", timestamp="2024-01-01T00:01:00Z", author_name="someone_else"),
         ]
         _episodes, warnings = analyzer.reconstruct_episodes(messages)
