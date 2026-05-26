@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from services.agenda_formatter import (
     _MAX_MESSAGE_LENGTH,
     _format_episode_refs,
     _truncate,
     format_agenda_message,
 )
+from services.news_fetcher import NewsItem
+from services.news_relevance import NewsCandidate
 from services.transcript_analyzer import (
     ActionItem,
     AgendaMetadata,
@@ -91,6 +95,28 @@ def _make_prompt(
     )
 
 
+def _make_news_candidate(
+    *,
+    title: str = "Claude 4 context window expanded to 1M tokens",
+    source: str = "Hacker News",
+    url: str = "https://news.ycombinator.com/item?id=12345",
+    topic_display_name: str = "AI / LLM 活用",
+    score: float = 0.5,
+) -> NewsCandidate:
+    news_item = NewsItem(
+        title=title,
+        url=url,
+        source=source,
+        published_at=datetime(2024, 1, 15, 0, 0, 0, tzinfo=UTC),
+    )
+    topic_match = _make_theme(display_name=topic_display_name)
+    return NewsCandidate(
+        news_item=news_item,
+        topic_match=topic_match,
+        score=score,
+    )
+
+
 # ── TestFormatAgendaMessage ────────────────────────────────────────────────────
 
 
@@ -101,7 +127,7 @@ class TestFormatAgendaMessage:
         """ヘッダーが常に含まれること."""
         result = _make_result()
         msg = format_agenda_message(result)
-        assert "今週の収録リマインダー" in msg
+        assert "今週の会話のタネ" in msg
 
     def test_footer_always_present(self):
         """フッター (分析メタデータ) が常に含まれること."""
@@ -110,52 +136,69 @@ class TestFormatAgendaMessage:
         assert "3 エピソード" in msg
         assert "50 件取得" in msg
 
+    def test_footer_shows_news_count_when_candidates_given(self):
+        """news_candidates が渡された場合、フッターにニュース接続件数が表示されること."""
+        result = _make_result(analyzed_episodes=11, fetched=50)
+        candidates = [_make_news_candidate(), _make_news_candidate(title="Another news")]
+        msg = format_agenda_message(result, news_candidates=candidates)
+        assert "11 エピソード" in msg
+        assert "2 ニュース接続" in msg
+        # "件取得" は news あり時は表示しない
+        assert "件取得" not in msg
+
     def test_all_sections_present_when_data_exists(self):
-        """全セクションにデータがある場合、3 セクションすべて含まれること."""
+        """全セクションにデータがある場合、テーマ・ニュース・論点セクションが含まれること."""
         result = _make_result(
             themes=[_make_theme()],
             items=[_make_item()],
             prompts=[_make_prompt()],
         )
-        msg = format_agenda_message(result)
-        assert "繰り返しトピック" in msg
+        candidates = [_make_news_candidate()]
+        msg = format_agenda_message(result, news_candidates=candidates, max_items=3)
+        assert "最近よく出てきたテーマ" in msg
+        assert "最近の会話と繋がりそうなニュース" in msg
         assert "アクションアイテム" in msg
-        assert "未解決の論点" in msg
+        assert "気になっている問い" in msg
 
     def test_empty_themes_section_omitted(self):
         """recurring_themes が 0 件の場合、テーマセクションが省略されること."""
         result = _make_result(themes=[], items=[_make_item()])
         msg = format_agenda_message(result)
-        assert "繰り返しトピック" not in msg
+        assert "最近よく出てきたテーマ" not in msg
 
     def test_empty_items_section_omitted(self):
         """action_items が 0 件の場合、アクションアイテムセクションが省略されること."""
         result = _make_result(themes=[_make_theme()], items=[])
-        msg = format_agenda_message(result)
+        msg = format_agenda_message(result, max_items=5)
+        assert "アクションアイテム" not in msg
+
+    def test_items_section_omitted_by_default(self):
+        """max_items=0 (デフォルト) の場合、アクションアイテムセクションが省略されること."""
+        result = _make_result(themes=[_make_theme()], items=[_make_item()])
+        msg = format_agenda_message(result)  # max_items=0 がデフォルト
         assert "アクションアイテム" not in msg
 
     def test_empty_prompts_section_omitted(self):
         """discussion_prompts が 0 件の場合、論点セクションが省略されること."""
         result = _make_result(themes=[_make_theme()], prompts=[])
         msg = format_agenda_message(result)
-        assert "未解決の論点" not in msg
+        assert "気になっている問い" not in msg
 
     def test_all_empty_shows_only_header_and_footer(self):
         """全セクション空の場合、ヘッダーとフッターのみ含まれること."""
         result = _make_result()
         msg = format_agenda_message(result)
-        assert "今週の収録リマインダー" in msg
+        assert "今週の会話のタネ" in msg
         assert "エピソード" in msg
-        assert "繰り返しトピック" not in msg
+        assert "最近よく出てきたテーマ" not in msg
         assert "アクションアイテム" not in msg
-        assert "未解決の論点" not in msg
+        assert "気になっている問い" not in msg
 
     def test_max_themes_limit_applied(self):
         """max_themes を超えるテーマが切り捨てられること."""
         themes = [_make_theme(topic_id=f"t{i}", display_name=f"Topic {i}") for i in range(10)]
         result = _make_result(themes=themes)
         msg = format_agenda_message(result, max_themes=3)
-        # Topic 0, 1, 2 は含まれ、Topic 3 以降は含まれない
         assert "Topic 0" in msg
         assert "Topic 2" in msg
         assert "Topic 3" not in msg
@@ -182,9 +225,8 @@ class TestFormatAgendaMessage:
         """80 字を超えるアクションアイテムのテキストが切り捨てられること."""
         long_text = "TODO: " + "あ" * 100
         result = _make_result(items=[_make_item(text=long_text)])
-        msg = format_agenda_message(result)
+        msg = format_agenda_message(result, max_items=1)
         assert "..." in msg
-        # 全文がそのまま含まれていないこと
         assert long_text not in msg
 
     def test_long_prompt_truncated(self):
@@ -200,22 +242,25 @@ class TestFormatAgendaMessage:
         themes = [_make_theme(topic_id=f"t{i}", display_name=f"Topic {i}") for i in range(5)]
         items = [_make_item(text=f"TODO: {'あ' * 80}", source_episode=i) for i in range(5)]
         prompts = [_make_prompt(sentence=f"{'設計' * 40}?", source_episode=i) for i in range(5)]
+        candidates = [_make_news_candidate(title=f"News item {i}" * 5) for i in range(5)]
         result = _make_result(themes=themes, items=items, prompts=prompts)
-        msg = format_agenda_message(result)
+        msg = format_agenda_message(result, news_candidates=candidates)
         assert len(msg) <= _MAX_MESSAGE_LENGTH
 
-    def test_episode_ref_shown_in_themes(self):
-        """recurring_theme にエピソード参照が含まれること."""
-        theme = _make_theme(evidence_episodes=[1, 2])
+    def test_themes_section_shows_display_name_without_episode_refs(self):
+        """recurring_theme のトピック名が表示され、エピソード参照が含まれないこと."""
+        theme = _make_theme(display_name="インフラ / Terraform", evidence_episodes=[1, 2])
         result = _make_result(themes=[theme])
         msg = format_agenda_message(result)
-        assert "#1" in msg
-        assert "#2" in msg
+        assert "インフラ / Terraform" in msg
+        # エピソード参照は themes セクションに表示しない
+        assert "(#1" not in msg
+        assert "(#2" not in msg
 
     def test_source_episode_shown_in_action_items(self):
         """action_item にエピソード番号が含まれること."""
         result = _make_result(items=[_make_item(source_episode=3)])
-        msg = format_agenda_message(result)
+        msg = format_agenda_message(result, max_items=1)
         assert "[#3]" in msg
 
     def test_source_episode_shown_in_prompts(self):
@@ -226,20 +271,89 @@ class TestFormatAgendaMessage:
 
     def test_section_budget_overflow_skips_section(self):
         """budget を超えるセクションが丸ごとスキップされること."""
-        # テーマセクションだけで budget を埋める大量データ
-        # 実際には _MAX_MESSAGE_LENGTH に近い状況を人工的に作るのが難しいため、
-        # budget を最小値に絞った custom call で確認する
         result = _make_result(
             themes=[_make_theme()],
             items=[_make_item()],
             prompts=[_make_prompt()],
         )
-        # max_items=0 相当: items が空として扱われるのでセクション省略を確認
         msg = format_agenda_message(result, max_items=0)
         assert "アクションアイテム" not in msg
-        # themes と prompts は残る
-        assert "繰り返しトピック" in msg
-        assert "未解決の論点" in msg
+        assert "最近よく出てきたテーマ" in msg
+        assert "気になっている問い" in msg
+
+
+# ── TestNewsSectionBuilding ────────────────────────────────────────────────────
+
+
+class TestNewsSectionBuilding:
+    """news section の構築テストクラス."""
+
+    def test_news_section_shown_with_candidates(self):
+        """news_candidates が渡された場合、ニュースセクションが表示されること."""
+        result = _make_result()
+        candidates = [_make_news_candidate()]
+        msg = format_agenda_message(result, news_candidates=candidates)
+        assert "最近の会話と繋がりそうなニュース" in msg
+
+    def test_news_section_omitted_when_none(self):
+        """news_candidates=None の場合、ニュースセクションが省略されること."""
+        result = _make_result()
+        msg = format_agenda_message(result, news_candidates=None)
+        assert "最近の会話と繋がりそうなニュース" not in msg
+
+    def test_news_section_omitted_when_empty_list(self):
+        """news_candidates=[] の場合、ニュースセクションが省略されること."""
+        result = _make_result()
+        msg = format_agenda_message(result, news_candidates=[])
+        assert "最近の会話と繋がりそうなニュース" not in msg
+
+    def test_news_title_and_source_in_message(self):
+        """ニュースのタイトルとソースがメッセージに含まれること."""
+        result = _make_result()
+        candidate = _make_news_candidate(
+            title="Cloud Run gen2 cold start improvements",
+            source="Google Cloud Blog",
+        )
+        msg = format_agenda_message(result, news_candidates=[candidate])
+        assert "Cloud Run gen2 cold start improvements" in msg
+        assert "Google Cloud Blog" in msg
+
+    def test_news_topic_connection_in_message(self):
+        """ニュースのトピック接続先 (↳ {topic}) がメッセージに含まれること."""
+        result = _make_result()
+        candidate = _make_news_candidate(topic_display_name="インフラ / Terraform")
+        msg = format_agenda_message(result, news_candidates=[candidate])
+        assert "インフラ / Terraform" in msg
+        assert "↳" in msg
+
+    def test_max_news_limit_applied(self):
+        """max_news を超えるニュース候補が切り捨てられること."""
+        result = _make_result()
+        candidates = [_make_news_candidate(title=f"News {i}", url=f"https://example.com/{i}") for i in range(10)]
+        msg = format_agenda_message(result, news_candidates=candidates, max_news=2)
+        assert "News 0" in msg
+        assert "News 1" in msg
+        assert "News 2" not in msg
+
+    def test_long_news_title_truncated(self):
+        """80 字を超えるニュースタイトルが切り捨てられること."""
+        long_title = "A" * 100
+        result = _make_result()
+        candidate = _make_news_candidate(title=long_title)
+        msg = format_agenda_message(result, news_candidates=[candidate])
+        assert "..." in msg
+        assert long_title not in msg
+
+    def test_message_with_news_within_length_limit(self):
+        """ニュースセクションを含むメッセージが _MAX_MESSAGE_LENGTH 以内に収まること."""
+        themes = [_make_theme(topic_id=f"t{i}", display_name=f"Topic {i}") for i in range(3)]
+        prompts = [_make_prompt(sentence=f"設計方針 {i} はどうすべきか?") for i in range(3)]
+        candidates = [
+            _make_news_candidate(title=f"News article {i}" * 3, url=f"https://example.com/{i}") for i in range(3)
+        ]
+        result = _make_result(themes=themes, prompts=prompts)
+        msg = format_agenda_message(result, news_candidates=candidates)
+        assert len(msg) <= _MAX_MESSAGE_LENGTH
 
 
 # ── TestFormatEpisodeRefs ──────────────────────────────────────────────────────
