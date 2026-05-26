@@ -2,7 +2,7 @@
 
 設計方針:
 - Pure logic layer: I/O 禁止、Discord API 禁止、filesystem access 禁止
-- 非決定論的な値（generated_at 等）は呼び出し元が生成して注入する
+- 非決定論的な値(generated_at 等)は呼び出し元が生成して注入する
 - Phase 1-A: reconstruct_episodes() と build_agenda() のみ実装
 - Phase 1-B: extract_recurring_themes / extract_action_items / extract_discussion_prompts を追加予定
 - sentence split は rule-based で実装し、重い NLP ライブラリは導入しない
@@ -35,13 +35,13 @@ class SortPolicy(StrEnum):
     """AgendaResult 内の各リストに適用するソート方針."""
 
     continuity = "continuity"
-    """episode_count desc → mention_count desc（Phase 1 デフォルト）."""
+    """episode_count desc → mention_count desc(Phase 1 デフォルト)."""
 
     recentness = "recentness"
     """最新エピソード番号の言及を優先する."""
 
     hybrid = "hybrid"
-    """continuity × recentness の重み付きスコア（Phase 2 実装予定）."""
+    """continuity x recentness の重み付きスコア(Phase 2 実装予定)."""
 
 
 # ── SeedTopic ─────────────────────────────────────────────────────────────────
@@ -79,16 +79,16 @@ class Episode:
     """#N Meeting Transcript: を境界として再構築した 1 エピソード."""
 
     number: int
-    """エピソード番号（整数）。表示時のみ display_number を使う。"""
+    """エピソード番号(整数)。表示時のみ display_number を使う。"""
 
     content: str
     """全 source_message の content を結合済みの全文テキスト。"""
 
     timestamp: str
-    """境界メッセージ（#N Meeting Transcript:）の ISO8601 タイムスタンプ。"""
+    """境界メッセージ(#N Meeting Transcript:)の ISO8601 タイムスタンプ。"""
 
     source_message_ids: list[str]
-    """このエピソードを構成する Discord message id のリスト（古い順）。"""
+    """このエピソードを構成する Discord message id のリスト(古い順)。"""
 
     @property
     def display_number(self) -> str:
@@ -107,10 +107,10 @@ class MentionEvidence:
     """言及があったエピソード番号。"""
 
     text: str
-    """キーワードを含む抜粋文（最大 100 字）。"""
+    """キーワードを含む抜粋文(最大 100 字)。"""
 
     sentence_index: int
-    """_split_into_sentences() 後の位置インデックス。前後文脈の再取得に使用する（Phase 2）。"""
+    """_split_into_sentences() 後の位置インデックス。前後文脈の再取得に使用する(Phase 2)。"""
 
 
 # ── TopicMatch ─────────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ class MentionEvidence:
 class TopicMatch:
     """Seed topic ごとの言及状況まとめ.
 
-    topic_id は SeedTopic.id（rename 耐性のある安定識別子）。
+    topic_id は SeedTopic.id(rename 耐性のある安定識別子)。
     display_name は表示用で、SeedTopic.name を参照せずとも描画できる。
     """
 
@@ -131,13 +131,13 @@ class TopicMatch:
     """SeedTopic.name の表示用コピー。参照解決なしで描画できる。"""
 
     episode_count: int
-    """言及があったエピソード数（主指標: 継続性の根拠）。"""
+    """言及があったエピソード数(主指標: 継続性の根拠)。"""
 
     mention_count: int
-    """全エピソード通算のキーワードマッチ行数（副指標）。"""
+    """全エピソード通算のキーワードマッチ行数(副指標)。"""
 
     evidence: list[MentionEvidence]
-    """言及箇所のエビデンス（最大 3 件）。"""
+    """言及箇所のエビデンス(最大 3 件)。"""
 
     score: float | None = None
     """Phase 1 は None。Phase 2+ でランキングスコアとして使用する。"""
@@ -168,7 +168,7 @@ class DiscussionPrompt:
     """未解決の論点として分類された 1 文."""
 
     sentence: str
-    """分類対象の 1 文（sentence 単位で抽出）。"""
+    """分類対象の 1 文(sentence 単位で抽出)。"""
 
     prompt_type: PromptType
     """分類種別。StrEnum のため JSON は文字列として出力される。"""
@@ -177,7 +177,7 @@ class DiscussionPrompt:
     """抽出元エピソード番号。"""
 
     confidence: float | None = None
-    """Phase 1（ルールベース）は None。Phase 4（LLM）で 0.0–1.0 の値が入る。"""
+    """Phase 1(ルールベース)は None。Phase 4(LLM)で 0.0-1.0 の値が入る。"""
 
 
 # ── AgendaMetadata ─────────────────────────────────────────────────────────────
@@ -188,16 +188,16 @@ class AgendaMetadata:
     """AgendaResult のスナップショット・再現性用メタデータ."""
 
     generated_at: str
-    """ISO8601 UTC。呼び出し元（agenda_main.py）が生成して渡す。"""
+    """ISO8601 UTC。呼び出し元(agenda_main.py)が生成して渡す。"""
 
     source_episode_numbers: list[int]
-    """分析対象エピソード番号のリスト（降順）。build_agenda() が自動導出する。"""
+    """分析対象エピソード番号のリスト(降順)。build_agenda() が自動導出する。"""
 
     sort_policy: str
-    """使用した SortPolicy の値（差分比較・再現用）。"""
+    """使用した SortPolicy の値(差分比較・再現用)。"""
 
     analysis_window_size: int
-    """fetch_messages() の limit 値（要求した取得件数）。"""
+    """fetch_messages() の limit 値(要求した取得件数)。"""
 
     fetched_message_count: int
     """Discord API が実際に返したメッセージ数。limit と一致しないことがある。"""
@@ -208,7 +208,7 @@ class AgendaMetadata:
 
 @dataclass
 class AgendaResult:
-    """週次アジェンダの生成結果。JSON-serializable かつ snapshot 保存対応。"""
+    """週次アジェンダの生成結果。JSON-serializable かつ snapshot 保存対応."""
 
     metadata: AgendaMetadata
     analyzed_episodes: int
@@ -300,7 +300,7 @@ ACTION_KEYWORDS: list[str] = [
     "必要がある",
 ]
 
-# 優先順位順に評価する（先頭の型が優先される）
+# 優先順位順に評価する(先頭の型が優先される)
 PROMPT_PATTERNS: dict[PromptType, list[str]] = {
     PromptType.design_decision: [
         r"にするか",
@@ -320,7 +320,7 @@ PROMPT_PATTERNS: dict[PromptType, list[str]] = {
         r"長期",
         r"ロードマップ",
     ],
-    PromptType.question: [r"[？?]"],
+    PromptType.question: [r"[??]"],
     PromptType.uncertain: [
         r"かもしれない",
         r"どうするか",
@@ -332,7 +332,7 @@ PROMPT_PATTERNS: dict[PromptType, list[str]] = {
 }
 
 # search() + MULTILINE を使用: match() より robust。
-# - 行頭（^）にパターンがあれば検出（引用符やプレフィックスへの耐性）
+# - 行頭(^)にパターンがあれば検出(引用符やプレフィックスへの耐性)
 # - multiline なメッセージでも安全に境界検出できる
 _EPISODE_BOUNDARY_RE: re.Pattern[str] = re.compile(
     r"^#(\d+)\s+Meeting Transcript:",
@@ -347,7 +347,7 @@ class TranscriptAnalyzer:
     """Discord transcript メッセージを解析して AgendaResult を生成する pure logic クラス.
 
     禁止事項: I/O、Discord API 呼び出し、filesystem アクセス、datetime.now() 直接呼び出し。
-    非決定論的な値（generated_at）は呼び出し元が生成して渡す。
+    非決定論的な値(generated_at)は呼び出し元が生成して渡す。
     """
 
     def __init__(self, seed_topics: list[SeedTopic] | None = None) -> None:
@@ -368,16 +368,16 @@ class TranscriptAnalyzer:
         *,
         strict: bool = False,
     ) -> tuple[list[Episode], list[str]]:
-        """新しい順のメッセージを Episode リスト（古い順）に再構築する.
+        """新しい順のメッセージを Episode リスト(古い順)に再構築する.
 
         split_message() によって複数のメッセージに分割された transcript を
         "#N Meeting Transcript:" を境界として 1 エピソードに結合する。
 
-        メッセージは timestamp 昇順（古い順）にソートしてから処理する。
+        メッセージは timestamp 昇順(古い順)にソートしてから処理する。
         このため Discord API が返す順序に依存しない。
 
         Args:
-            messages: Discord API から取得した生メッセージのリスト（順序不問）。
+            messages: Discord API から取得した生メッセージのリスト(順序不問)。
             strict: True の場合、境界不整合で TranscriptBoundaryError を raise する。
                     False の場合、不整合を warnings に収集して処理を継続する。
 
@@ -391,7 +391,7 @@ class TranscriptAnalyzer:
         """
         warnings: list[str] = []
 
-        # timestamp 昇順ソート（ISO8601 は辞書順と時系列が一致する）
+        # timestamp 昇順ソート(ISO8601 は辞書順と時系列が一致する)
         # reversed(messages) ではなく sort することで API の返却順序に依存しない
         ordered = sorted(messages, key=lambda m: m.timestamp)
 
@@ -405,7 +405,7 @@ class TranscriptAnalyzer:
             if boundary_match:
                 episode_number = int(boundary_match.group(1))
 
-                # エピソード番号の逆転チェック（時系列上あり得ない番号の減少）
+                # エピソード番号の逆転チェック(時系列上あり得ない番号の減少)
                 if current_episode is not None and episode_number <= current_episode.number:
                     warning = (
                         f"Episode number regression: got #{episode_number} "
@@ -428,7 +428,7 @@ class TranscriptAnalyzer:
                 current_episode_author = msg.author_name
 
             elif current_episode is not None:
-                # 現在のエピソードの続き（split_message による分割部分）
+                # 現在のエピソードの続き(split_message による分割部分)
                 # author_name が境界メッセージと異なる場合は unrelated chat の可能性
                 if current_episode_author is not None and msg.author_name != current_episode_author:
                     warning = (
@@ -477,9 +477,9 @@ class TranscriptAnalyzer:
 
         Args:
             episodes: reconstruct_episodes() で再構築したエピソードリスト。
-            recurring_themes: extract_recurring_themes() の結果（Phase 1-A は []）。
-            action_items: extract_action_items() の結果（Phase 1-A は []）。
-            discussion_prompts: extract_discussion_prompts() の結果（Phase 1-A は []）。
+            recurring_themes: extract_recurring_themes() の結果(Phase 1-A は [])。
+            action_items: extract_action_items() の結果(Phase 1-A は [])。
+            discussion_prompts: extract_discussion_prompts() の結果(Phase 1-A は [])。
             sort_policy: ソート方針。
             generated_at: ISO8601 UTC 文字列。呼び出し元が生成して渡す。
             analysis_window_size: fetch_messages() に渡した limit 値。
@@ -489,7 +489,7 @@ class TranscriptAnalyzer:
             ソート済みの AgendaResult。
 
         Raises:
-            NotImplementedError: sort_policy=SortPolicy.hybrid の場合（Phase 2 実装予定）。
+            NotImplementedError: sort_policy=SortPolicy.hybrid の場合(Phase 2 実装予定)。
         """
         if sort_policy == SortPolicy.hybrid:
             msg = "SortPolicy.hybrid は Phase 2 で実装予定です。"

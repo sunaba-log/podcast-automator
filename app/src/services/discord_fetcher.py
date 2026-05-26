@@ -50,10 +50,10 @@ class DiscordFetcher:
 
         Args:
             channel_id: 取得対象のチャンネル ID。
-            limit: 取得件数。1–100 の範囲に自動でクランプされる。
+            limit: 取得件数。1-100 の範囲に自動でクランプされる。
 
         Returns:
-            DiscordMessage のリスト（新しい順）。
+            DiscordMessage のリスト(新しい順)。
 
         Raises:
             requests.HTTPError: API が 4xx / 5xx を返した場合。
