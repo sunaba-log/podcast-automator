@@ -16,6 +16,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from services.agenda_formatter import format_agenda_message
 from services.discord_fetcher import DiscordFetcher
 from services.notifier import Notifier
 from services.transcript_analyzer import AgendaResult, TranscriptAnalyzer
@@ -141,11 +142,14 @@ def send_weekly_agenda() -> None:
         )
         if _DEBUG_JSON_PATH:
             _export_debug_json(result, _DEBUG_JSON_PATH)
+        message = format_agenda_message(result)
+    else:
+        # transcript analysis がスキップまたは失敗した場合は固定文に fallback
+        message = AGENDA_MESSAGE
 
-    # フォールバック: 固定文メッセージを Discord へ投稿する
     notifier = Notifier(discord_webhook_url=DISCORD_WEBHOOK_AGENDA_URL)
     success = notifier.send_discord_message(
-        message=AGENDA_MESSAGE,
+        message=message,
         username="Podcast Scheduler",
     )
 
