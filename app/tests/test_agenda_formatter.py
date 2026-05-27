@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from services.agenda_formatter import (
+    _MAX_AI_NEWS_SECTION_LENGTH,
     _MAX_MESSAGE_LENGTH,
+    _build_ai_news_section,
     _format_episode_refs,
     _truncate,
     format_agenda_message,
@@ -413,3 +415,137 @@ class TestTruncate:
         """切り詰め後の長さが max_len と等しいこと."""
         result = _truncate("x" * 100, 15)
         assert len(result) == 15
+
+
+# ── TestBuildAiNewsSection ─────────────────────────────────────────────────────
+
+
+class TestBuildAiNewsSection:
+    """_build_ai_news_section() のユニットテスト."""
+
+    def test_returns_section_with_header(self):
+        """返り値に AI ニュースセクションのヘッダーが含まれること."""
+        section = _build_ai_news_section("ニュース内容", budget=1000)
+        assert "今週の注目ニュース・トレンド" in section
+
+    def test_returns_section_with_body_text(self):
+        """返り値に渡したテキストが含まれること."""
+        section = _build_ai_news_section("テスト本文テキスト", budget=1000)
+        assert "テスト本文テキスト" in section
+
+    def test_empty_string_returns_none(self):
+        """空文字列の場合 None を返すこと."""
+        assert _build_ai_news_section("", budget=1000) is None
+
+    def test_whitespace_only_returns_none(self):
+        """空白のみの場合 None を返すこと."""
+        assert _build_ai_news_section("   \n\t  ", budget=1000) is None
+
+    def test_truncates_to_max_ai_section_length(self):
+        """テキストが _MAX_AI_NEWS_SECTION_LENGTH を超える場合に切り詰めること."""
+        long_text = "a" * (_MAX_AI_NEWS_SECTION_LENGTH + 200)
+        section = _build_ai_news_section(long_text, budget=_MAX_AI_NEWS_SECTION_LENGTH + 500)
+        # body 部分が _MAX_AI_NEWS_SECTION_LENGTH 以内に収まること
+        assert section is not None
+        # ヘッダー + body の合計がハード上限を超えないこと
+        assert len(section) <= _MAX_AI_NEWS_SECTION_LENGTH + 50  # header margin
+
+    def test_truncates_to_budget_when_smaller_than_max(self):
+        """budget が _MAX_AI_NEWS_SECTION_LENGTH より小さい場合は budget で切り詰めること."""
+        text = "b" * 500
+        section = _build_ai_news_section(text, budget=100)
+        # header + body が budget に収まること
+        assert section is not None
+        assert len(section) <= 100 + len("🔍 **今週の注目ニュース・トレンド**\n\n")
+
+    def test_returns_none_when_budget_too_small(self):
+        """budget が極端に小さい場合 None を返すこと."""
+        # budget - 2 (separator) <= 0 のケース
+        assert _build_ai_news_section("text", budget=1) is None
+
+    def test_short_text_not_truncated(self):
+        """budget に余裕がある場合、短いテキストはそのまま返ること."""
+        text = "短いニュース本文"
+        section = _build_ai_news_section(text, budget=1000)
+        assert text in section
+        assert "..." not in section
+
+
+# ── TestAiNewsSectionInFormatter ──────────────────────────────────────────────
+
+
+class TestAiNewsSectionInFormatter:
+    """format_agenda_message() の ai_news_section パスのテスト."""
+
+    def test_ai_news_section_shown_in_message(self):
+        """ai_news_section が渡された場合、その内容がメッセージに含まれること."""
+        result = _make_result()
+        msg = format_agenda_message(result, ai_news_section="**テストニュース**\n会話の種: 面白い視点")
+        assert "テストニュース" in msg
+        assert "会話の種" in msg
+
+    def test_ai_section_header_shown(self):
+        """ai_news_section が渡された場合、AI ニュースヘッダーが含まれること."""
+        result = _make_result()
+        msg = format_agenda_message(result, ai_news_section="ニュース内容")
+        assert "今週の注目ニュース・トレンド" in msg
+
+    def test_ai_section_takes_priority_over_news_candidates(self):
+        """ai_news_section が優先され、news_candidates の RSS セクションが表示されないこと."""
+        result = _make_result()
+        candidates = [_make_news_candidate(title="RSS Article")]
+        msg = format_agenda_message(
+            result,
+            ai_news_section="AI generated content",
+            news_candidates=candidates,
+        )
+        assert "今週の注目ニュース・トレンド" in msg
+        assert "最近の会話と繋がりそうなニュース" not in msg
+        assert "RSS Article" not in msg
+
+    def test_footer_shows_ai_research_when_ai_section_given(self):
+        """ai_news_section が渡された場合、フッターに 'AI リサーチ' が含まれること."""
+        result = _make_result(analyzed_episodes=5)
+        msg = format_agenda_message(result, ai_news_section="ニュース内容")
+        assert "AI リサーチ" in msg
+        assert "5 エピソード" in msg
+
+    def test_footer_does_not_show_ai_research_when_none(self):
+        """ai_news_section=None の場合、フッターに 'AI リサーチ' が含まれないこと."""
+        result = _make_result()
+        msg = format_agenda_message(result)
+        assert "AI リサーチ" not in msg
+
+    def test_none_ai_section_falls_back_to_news_candidates(self):
+        """ai_news_section=None の場合、news_candidates の RSS セクションが使われること (後方互換)."""
+        result = _make_result()
+        candidates = [_make_news_candidate(title="RSS Fallback Article")]
+        msg = format_agenda_message(result, ai_news_section=None, news_candidates=candidates)
+        assert "最近の会話と繋がりそうなニュース" in msg
+        assert "RSS Fallback Article" in msg
+
+    def test_empty_ai_section_falls_back_to_news_candidates(self):
+        """ai_news_section が空文字列の場合、news_candidates が使われること."""
+        result = _make_result()
+        candidates = [_make_news_candidate(title="RSS Fallback Article")]
+        # 空文字列の ai_news_section は _build_ai_news_section が None を返す
+        # → フォーマッタは news_candidates を使う
+        msg = format_agenda_message(result, ai_news_section="", news_candidates=candidates)
+        assert "RSS Fallback Article" in msg
+
+    def test_message_with_ai_section_within_length_limit(self):
+        """ai_news_section を含むメッセージが _MAX_MESSAGE_LENGTH 以内に収まること."""
+        themes = [_make_theme(topic_id=f"t{i}", display_name=f"Topic {i}") for i in range(3)]
+        prompts = [_make_prompt(sentence=f"設計方針 {i} はどうすべきか?") for i in range(3)]
+        long_ai_section = "AI ニュース内容。" * 200  # 意図的に長い
+        result = _make_result(themes=themes, prompts=prompts)
+        msg = format_agenda_message(result, ai_news_section=long_ai_section)
+        assert len(msg) <= _MAX_MESSAGE_LENGTH
+
+    def test_themes_and_ai_section_coexist(self):
+        """テーマセクションと AI ニュースセクションが共存できること."""
+        themes = [_make_theme(display_name="インフラ / Terraform")]
+        result = _make_result(themes=themes)
+        msg = format_agenda_message(result, ai_news_section="最新インフラ動向")
+        assert "最近よく出てきたテーマ" in msg
+        assert "今週の注目ニュース・トレンド" in msg
