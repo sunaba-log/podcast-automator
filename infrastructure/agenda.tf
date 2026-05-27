@@ -65,6 +65,13 @@ resource "google_cloud_run_v2_job" "agenda" {
           name  = "DISCORD_TRANSCRIPT_CHANNEL_ID"
           value = var.discord_transcript_channel_id
         }
+
+        # GCP プロジェクト ID: AINewsResearcher (Vertex AI / Gemini grounding) が参照する
+        # Cloud Run 上は GOOGLE_CLOUD_PROJECT が自動注入される場合もあるが明示的に設定する
+        env {
+          name  = "GOOGLE_CLOUD_PROJECT"
+          value = var.project_id
+        }
       }
     }
   }
