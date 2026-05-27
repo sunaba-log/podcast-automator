@@ -426,7 +426,7 @@ class TestBuildAiNewsSection:
     def test_returns_section_with_header(self):
         """返り値に AI ニュースセクションのヘッダーが含まれること."""
         section = _build_ai_news_section("ニュース内容", budget=1000)
-        assert "今週の注目ニュース・トレンド" in section
+        assert "今週の会話の続きになりそうな話題" in section
 
     def test_returns_section_with_body_text(self):
         """返り値に渡したテキストが含まれること."""
@@ -456,7 +456,7 @@ class TestBuildAiNewsSection:
         section = _build_ai_news_section(text, budget=100)
         # header + body が budget に収まること
         assert section is not None
-        assert len(section) <= 100 + len("🔍 **今週の注目ニュース・トレンド**\n\n")
+        assert len(section) <= 100 + len("🔍 **今週の会話の続きになりそうな話題**\n\n")
 
     def test_returns_none_when_budget_too_small(self):
         """budget が極端に小さい場合 None を返すこと."""
@@ -488,7 +488,7 @@ class TestAiNewsSectionInFormatter:
         """ai_news_section が渡された場合、AI ニュースヘッダーが含まれること."""
         result = _make_result()
         msg = format_agenda_message(result, ai_news_section="ニュース内容")
-        assert "今週の注目ニュース・トレンド" in msg
+        assert "今週の会話の続きになりそうな話題" in msg
 
     def test_ai_section_takes_priority_over_news_candidates(self):
         """ai_news_section が優先され、news_candidates の RSS セクションが表示されないこと."""
@@ -499,7 +499,7 @@ class TestAiNewsSectionInFormatter:
             ai_news_section="AI generated content",
             news_candidates=candidates,
         )
-        assert "今週の注目ニュース・トレンド" in msg
+        assert "今週の会話の続きになりそうな話題" in msg
         assert "最近の会話と繋がりそうなニュース" not in msg
         assert "RSS Article" not in msg
 
@@ -548,4 +548,4 @@ class TestAiNewsSectionInFormatter:
         result = _make_result(themes=themes)
         msg = format_agenda_message(result, ai_news_section="最新インフラ動向")
         assert "最近よく出てきたテーマ" in msg
-        assert "今週の注目ニュース・トレンド" in msg
+        assert "今週の会話の続きになりそうな話題" in msg

@@ -136,7 +136,7 @@ def _build_ai_news_section(ai_text: str, budget: int) -> str | None:
         return None
 
     body = stripped if len(stripped) <= max_len else stripped[: max_len - 3] + "..."
-    return f"🔍 **今週の注目ニュース・トレンド**\n\n{body}"
+    return f"🔍 **今週の会話の続きになりそうな話題**\n\n{body}"
 
 
 def _build_news_section(candidates: list[NewsCandidate]) -> str | None:
