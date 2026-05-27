@@ -15,6 +15,7 @@ from services.news_relevance import (
     NewsScoringStrategy,
     _dedup_by_url,
     _filter_candidates,
+    _kw_in_text,
     _normalize_url,
     _sort_candidates,
     match_news_to_agenda,
@@ -123,6 +124,101 @@ class TestNewsCandidate:
             score=0.5,
         )
         assert candidate.matched_keywords == []
+
+
+# ── TestKwInText ───────────────────────────────────────────────────────────────
+
+
+class TestKwInText:
+    """_kw_in_text() のユニットテスト.
+
+    マッチ戦略の分岐を検証する:
+    - ASCII single-word → word-boundary マッチ
+    - フレーズ (スペースを含む) → substring マッチ (変更なし)
+    - 日本語など非 ASCII → substring マッチ (変更なし)
+    """
+
+    # ── ASCII single-word: word-boundary matching ──────────────────────────────
+
+    def test_ascii_word_matches_standalone(self):
+        """ASCII 単語が単独で出現する場合にマッチする."""
+        assert _kw_in_text("ai", "ai chip news") is True
+
+    def test_ai_does_not_match_in_airport(self):
+        """'ai' が 'airport' の部分文字列としてマッチしない (core regression test)."""
+        assert _kw_in_text("ai", "airport runway infrastructure") is False
+
+    def test_ai_does_not_match_in_trail(self):
+        """'ai' が 'trail' の部分文字列としてマッチしない."""
+        assert _kw_in_text("ai", "trail running competition 2024") is False
+
+    def test_ai_does_not_match_in_detailed(self):
+        """'ai' が 'detailed' の部分文字列としてマッチしない."""
+        assert _kw_in_text("ai", "detailed analysis report") is False
+
+    def test_ai_does_not_match_in_rain(self):
+        """'ai' が 'rain' の部分文字列としてマッチしない."""
+        assert _kw_in_text("ai", "heavy rain forecast") is False
+
+    def test_llm_matches_standalone(self):
+        """'llm' が単独で出現する場合にマッチする."""
+        assert _kw_in_text("llm", "llm based chatbot deployment") is True
+
+    def test_gcp_matches_standalone(self):
+        """'gcp' が単独で出現する場合にマッチする."""
+        assert _kw_in_text("gcp", "deploy to gcp environment") is True
+
+    def test_bot_does_not_match_in_robot(self):
+        """'bot' が 'robot' の部分文字列としてマッチしない."""
+        assert _kw_in_text("bot", "robot automation system") is False
+
+    def test_ascii_word_matches_at_sentence_start(self):
+        """文頭の ASCII 単語にマッチする."""
+        assert _kw_in_text("ai", "ai is transforming the industry") is True
+
+    def test_ascii_word_matches_at_sentence_end(self):
+        """文末の ASCII 単語にマッチする."""
+        assert _kw_in_text("ai", "the future of ai") is True
+
+    def test_ascii_word_matches_surrounded_by_punctuation(self):
+        """句読点に囲まれた ASCII 単語にマッチする."""
+        assert _kw_in_text("ai", "next-gen ai: what's coming") is True
+
+    def test_terraform_matches_standalone(self):
+        """長い ASCII 単語 (Terraform) も word-boundary でマッチする."""
+        assert _kw_in_text("terraform", "terraform deployment guide") is True
+
+    def test_empty_text_returns_false(self):
+        """テキストが空文字列の場合は False を返す."""
+        assert _kw_in_text("ai", "") is False
+
+    def test_exact_full_text_match(self):
+        """テキストがキーワードと完全一致する場合にマッチする."""
+        assert _kw_in_text("ai", "ai") is True
+
+    # ── Phrase keywords: substring matching (unchanged) ────────────────────────
+
+    def test_phrase_keyword_matches_in_text(self):
+        """スペースを含むフレーズキーワードは substring マッチを使用する."""
+        assert _kw_in_text("cloud run", "deploy on cloud run service") is True
+
+    def test_phrase_keyword_no_match(self):
+        """フレーズキーワードがテキストに含まれない場合は False."""
+        assert _kw_in_text("cloud run", "kubernetes deployment") is False
+
+    # ── Non-ASCII (Japanese): substring matching (unchanged) ──────────────────
+
+    def test_japanese_keyword_matches_substring(self):
+        """日本語キーワードは substring マッチを使用する."""
+        assert _kw_in_text("モデル", "大規模モデルの評価") is True
+
+    def test_japanese_keyword_matches_in_compound_word(self):
+        """日本語は単語境界がないため compound word (ビジネスモデル) にもマッチする."""
+        assert _kw_in_text("モデル", "ビジネスモデル変革") is True
+
+    def test_japanese_keyword_no_match(self):
+        """日本語キーワードがテキストに含まれない場合は False."""
+        assert _kw_in_text("モデル", "機械学習のベンチマーク") is False
 
 
 # ── TestNormalizeUrl ───────────────────────────────────────────────────────────
@@ -297,6 +393,37 @@ class TestKeywordScoringStrategy:
         topic = _make_topic_match(keywords=["Terraform", "GCP", "Cloud Run"])
         score, _ = scorer.score(news, topic)
         assert 0.0 <= score <= 1.0
+
+    def test_ai_keyword_does_not_match_airport_title(self):
+        """'AI' キーワードが 'airport' タイトルに誤マッチしないことを検証 (word-boundary regression).
+
+        旧実装: "ai" in "airport" → True (誤ヒット)
+        新実装: re.search(r'\\bai\\b', "airport ...") → None (正しい動作)
+        """
+        scorer = self._scorer()
+        news = _make_news_item(title="Airport runway infrastructure overhaul detailed")
+        topic = _make_topic_match(keywords=["AI", "LLM", "Gemini", "Claude", "モデル", "プロンプト"])
+        score, matched = scorer.score(news, topic)
+        assert score == 0.0
+        assert matched == []
+
+    def test_ai_keyword_matches_in_ai_article(self):
+        """'AI' キーワードが AI 記事に正しくマッチすることを確認 (word-boundary は正当なマッチを妨げない)."""
+        scorer = self._scorer()
+        news = _make_news_item(title="New AI model beats GPT-4 on coding benchmarks")
+        topic = _make_topic_match(keywords=["AI"])
+        score, matched = scorer.score(news, topic)
+        assert score > 0.0
+        assert "AI" in matched
+
+    def test_bot_keyword_does_not_match_robot_title(self):
+        """'Bot' キーワードが 'robot' タイトルに誤マッチしないことを検証 (word-boundary regression)."""
+        scorer = self._scorer()
+        news = _make_news_item(title="Robot automation advances in manufacturing")
+        topic = _make_topic_match(keywords=["Bot"])
+        score, matched = scorer.score(news, topic)
+        assert score == 0.0
+        assert matched == []
 
 
 # ── TestDeduplicateByUrl ───────────────────────────────────────────────────────

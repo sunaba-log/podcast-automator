@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlparse
@@ -124,8 +125,8 @@ class KeywordScoringStrategy:
 
         for kw in topic_match.keywords:
             kw_lower = kw.lower()
-            in_title = kw_lower in title_lower
-            in_summary = kw_lower in summary_lower
+            in_title = _kw_in_text(kw_lower, title_lower)
+            in_summary = _kw_in_text(kw_lower, summary_lower)
             if in_title or in_summary:
                 matched.append(kw)
                 if in_title:
@@ -138,6 +139,36 @@ class KeywordScoringStrategy:
 
 
 # ── Private helpers ────────────────────────────────────────────────────────────
+
+
+def _kw_in_text(kw_lower: str, text_lower: str) -> bool:
+    """キーワードがテキストに含まれるか判定する.
+
+    マッチ戦略はキーワードの種類によって分岐する:
+
+    * **ASCII single-word** (スペースなし・全 ASCII): word-boundary マッチ。
+      ``re.search(r'\\bkw\\b', text)`` を使用し、"ai" が "airport" や "trail" の
+      部分文字列としてマッチすることを防ぐ。
+    * **フレーズ** (スペースを含む): 従来の substring マッチ。
+      "cloud run" は順序付き連続マッチが必要なため substring が適切。
+    * **非 ASCII** (日本語等): 従来の substring マッチ。
+      日本語には単語境界 (``\\b``) が適用されないため。
+
+    Args:
+        kw_lower: 小文字化済みのキーワード文字列。
+        text_lower: 小文字化済みの検索対象テキスト文字列。
+
+    Returns:
+        キーワードがテキストに含まれる場合 True、含まれない場合 False。
+    """
+    # フレーズ (スペースを含む) → substring マッチ
+    if " " in kw_lower:
+        return kw_lower in text_lower
+    # 純粋な ASCII 単語 → word-boundary マッチ
+    if kw_lower.isascii():
+        return bool(re.search(r"\b" + re.escape(kw_lower) + r"\b", text_lower))
+    # 日本語など非 ASCII → substring マッチ
+    return kw_lower in text_lower
 
 
 def _normalize_url(url: str) -> str:
