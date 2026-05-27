@@ -21,6 +21,7 @@ from services.agenda_formatter import format_agenda_message
 from services.discord_fetcher import DiscordFetcher
 from services.news_fetcher import DEFAULT_RSS_SOURCES, NewsFetcher
 from services.news_relevance import NewsCandidate, match_news_to_agenda
+from services.news_researcher import AINewsResearcher
 from services.notifier import Notifier
 from services.transcript_analyzer import AgendaResult, TranscriptAnalyzer
 
@@ -36,6 +37,11 @@ _TRANSCRIPT_FETCH_LIMIT: int = int(os.environ.get("TRANSCRIPT_FETCH_LIMIT", "50"
 # Cloud Run 上は ephemeral filesystem のため、設定しても次回起動時には消える。
 # ローカルデバッグ用途のみを想定しており、本番では基本的に未設定とすること。
 _DEBUG_JSON_PATH = os.environ.get("DEBUG_JSON_PATH")
+
+# AI ニュース調査: GCP プロジェクト ID (Vertex AI 使用)
+# Cloud Run 環境では GOOGLE_CLOUD_PROJECT が自動設定される場合があるが、
+# 明示的に設定することを推奨する。
+_GCP_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT")
 
 AGENDA_MESSAGE = (
     "📅 **今週の収録リマインダー**\n\n"
@@ -160,7 +166,31 @@ def send_weekly_agenda() -> None:
         )
         if _DEBUG_JSON_PATH:
             _export_debug_json(result, _DEBUG_JSON_PATH)
-        message = format_agenda_message(result, news_candidates=news_candidates)
+
+        # Phase 3-D: AI ニュース調査 (primary)
+        # 失敗した場合は RSS pipeline (news_candidates) を fallback として使用する。
+        ai_news_section: str | None = None
+        if _GCP_PROJECT_ID and result.recurring_themes:
+            try:
+                researcher = AINewsResearcher(project_id=_GCP_PROJECT_ID)
+                ai_news_section = researcher.research(result.recurring_themes)
+                logger.info("AI news research succeeded (%d chars).", len(ai_news_section))
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "AI news research failed. Falling back to RSS candidates.", exc_info=True
+                )
+        else:
+            logger.info(
+                "AI news research skipped (GCP_PROJECT_ID=%s, themes=%d).",
+                bool(_GCP_PROJECT_ID),
+                len(result.recurring_themes),
+            )
+
+        message = format_agenda_message(
+            result,
+            ai_news_section=ai_news_section,
+            news_candidates=news_candidates if not ai_news_section else None,
+        )
     else:
         # transcript analysis がスキップまたは失敗した場合は固定文に fallback
         message = AGENDA_MESSAGE

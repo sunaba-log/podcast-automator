@@ -27,11 +27,15 @@ _MAX_MESSAGE_LENGTH: int = 1900
 # action_item / discussion_prompt / news title の 1 行あたりの最大文字数
 _MAX_LINE_LENGTH: int = 80
 
+# AI 生成ニュースセクションの最大文字数 (budget 超過時の安全ネット)
+_MAX_AI_NEWS_SECTION_LENGTH: int = 900
+
 
 def format_agenda_message(
     result: AgendaResult,
     *,
     news_candidates: list[NewsCandidate] | None = None,
+    ai_news_section: str | None = None,
     max_themes: int = 3,
     max_items: int = 0,
     max_prompts: int = 3,
@@ -44,7 +48,7 @@ def format_agenda_message(
     セクション構成:
       1. ヘッダー (常に表示)
       2. 最近よく出てきたテーマ (0 件の場合は省略)
-      3. 最近の会話と繋がりそうなニュース (news_candidates が None / 空の場合は省略)
+      3. ニュースセクション: ai_news_section が優先。None の場合は news_candidates にフォールバック。
       4. アクションアイテム (max_items=0 の場合は省略 / デフォルト非表示)
       5. 気になっている問い (0 件の場合は省略)
       6. フッター (常に表示)
@@ -55,7 +59,8 @@ def format_agenda_message(
 
     Args:
         result: フォーマット対象の AgendaResult。
-        news_candidates: ニュース候補リスト。None または空の場合はニュースセクションを省略。
+        news_candidates: RSS ニュース候補リスト (fallback)。ai_news_section が優先される。
+        ai_news_section: AI が生成したニュース調査テキスト。None の場合は news_candidates を使用。
         max_themes: 表示する recurring_themes の最大件数。
         max_items: 表示する action_items の最大件数。0 の場合はセクション非表示 (デフォルト)。
         max_prompts: 表示する discussion_prompts の最大件数。
@@ -65,15 +70,21 @@ def format_agenda_message(
         Discord markdown 形式の文字列。_MAX_MESSAGE_LENGTH 以内に収まる。
     """
     header = "🎙️ **今週の会話のタネ**"
-    footer = _build_footer(result, news_candidates)
+    footer = _build_footer(result, news_candidates=news_candidates, ai_news_section=ai_news_section)
 
     # ヘッダー、フッター、区切り文字分を先に予算から差し引く
     base_cost = len(header) + 2 + len(footer)
     budget = _MAX_MESSAGE_LENGTH - base_cost
 
+    # ニュースセクション: AI 生成テキストを優先、なければ RSS candidates
+    if ai_news_section:
+        news_section = _build_ai_news_section(ai_news_section, budget)
+    else:
+        news_section = _build_news_section((news_candidates or [])[:max_news])
+
     candidate_sections = [
         _build_themes_section(result.recurring_themes[:max_themes]),
-        _build_news_section((news_candidates or [])[:max_news]),
+        news_section,
         _build_items_section(result.action_items[:max_items]),
         _build_prompts_section(result.discussion_prompts[:max_prompts]),
     ]
@@ -101,6 +112,31 @@ def _build_themes_section(themes: list[TopicMatch]) -> str | None:
     lines = ["🧵 **最近よく出てきたテーマ**"]
     lines.extend(f"・{theme.display_name}" for theme in themes)
     return "\n".join(lines)
+
+
+def _build_ai_news_section(ai_text: str, budget: int) -> str | None:
+    """AI 生成ニューステキストをセクションとして組み立てる.
+
+    _MAX_AI_NEWS_SECTION_LENGTH と残予算の小さい方でテキストを切り詰める。
+    テキストが空の場合は None を返す。
+
+    Args:
+        ai_text: AINewsResearcher.research() が返した markdown テキスト。
+        budget: 現時点の残予算 (文字数)。
+
+    Returns:
+        Discord markdown 形式のセクション文字列、または None。
+    """
+    stripped = ai_text.strip()
+    if not stripped:
+        return None
+
+    max_len = min(_MAX_AI_NEWS_SECTION_LENGTH, budget - 2)  # -2 for "\n\n" separator
+    if max_len <= 0:
+        return None
+
+    body = stripped if len(stripped) <= max_len else stripped[: max_len - 3] + "..."
+    return f"🔍 **今週の注目ニュース・トレンド**\n\n{body}"
 
 
 def _build_news_section(candidates: list[NewsCandidate]) -> str | None:
@@ -144,12 +180,18 @@ def _build_prompts_section(prompts: list[DiscussionPrompt]) -> str | None:
     return "\n".join(lines)
 
 
-def _build_footer(result: AgendaResult, news_candidates: list[NewsCandidate] | None = None) -> str:
+def _build_footer(
+    result: AgendaResult,
+    news_candidates: list[NewsCandidate] | None = None,
+    ai_news_section: str | None = None,
+) -> str:
     """分析メタデータのフッターを構築する.
 
-    news_candidates が存在する場合はニュース接続件数を表示する。
+    AI ニュース調査 > RSS ニュース候補 > フォールバック の優先順で表示内容を切り替える。
     """
     ep_count = result.analyzed_episodes
+    if ai_news_section:
+        return f"📊 *{ep_count} エピソード / AI リサーチ*"
     if news_candidates:
         return f"📊 *{ep_count} エピソード / {len(news_candidates)} ニュース接続*"
     fetched = result.metadata.fetched_message_count
