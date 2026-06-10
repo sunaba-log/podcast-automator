@@ -1,0 +1,83 @@
+name: Discord Notification
+
+on:
+  issues:
+    types: [assigned]
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [review_requested]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and send Discord message
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_ACTIVITY_WEBHOOK_URL }}
+        run: |
+          python3 << 'PYEOF'
+          import json, os, re, subprocess
+
+          USER_MAP = {
+              "k0heik": "1444623950364803138",
+              "KenTakashima": "847084559065808947",
+              "otaka44": "442619994614792203",
+          }
+
+          event_name = os.environ["GITHUB_EVENT_NAME"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+
+          with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+              event = json.load(f)
+
+          action = event.get("action", "")
+          usernames = []
+          url = ""
+          label = ""
+
+          if event_name == "issues" and action == "assigned":
+              usernames = [event["assignee"]["login"]]
+              url = event["issue"]["html_url"]
+              label = f"Issue アサイン: #{event['issue']['number']} {event['issue']['title']}"
+
+          elif event_name == "issue_comment" and action == "created":
+              body = event["comment"]["body"]
+              usernames = [u for u in re.findall(r'@(\w+)', body) if u in USER_MAP]
+              url = event["comment"]["html_url"]
+              label = f"コメントでメンション (#{event['issue']['number']})"
+
+          elif event_name == "pull_request" and action == "review_requested":
+              reviewer = event.get("requested_reviewer") or {}
+              if reviewer.get("login"):
+                  usernames = [reviewer["login"]]
+              url = event["pull_request"]["html_url"]
+              label = f"PR レビュー依頼: #{event['pull_request']['number']} {event['pull_request']['title']}"
+
+          elif event_name == "pull_request_review_comment" and action == "created":
+              body = event["comment"]["body"]
+              usernames = [u for u in re.findall(r'@(\w+)', body) if u in USER_MAP]
+              url = event["comment"]["html_url"]
+              label = f"PR コメントでメンション (#{event['pull_request']['number']})"
+
+          mentions = " ".join(f"<@{USER_MAP[u]}>" for u in usernames if u in USER_MAP)
+          if not mentions:
+              print("No mentions found, skipping.")
+              exit(0)
+
+          content = f"{mentions} [{repo}] {label}\n{url}"
+          data = json.dumps({"content": content}).encode()
+          webhook_url = os.environ["DISCORD_WEBHOOK_URL"].strip()
+          result = subprocess.run(
+              ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "POST", webhook_url,
+               "-H", "Content-Type: application/json",
+               "-d", json.dumps({"content": content})],
+              capture_output=True, text=True
+          )
+          status = result.stdout.strip()
+          if status not in ("200", "204"):
+              raise RuntimeError(f"Discord returned HTTP {status}: {result.stderr}")
+          print(f"Sent: {content}")
+          PYEOF
