@@ -10,7 +10,7 @@ R2 からファイルをダウンロードする簡易スクリプト。
 import argparse
 import os
 
-from services import R2Client
+from infrastructure.storage import R2Client
 
 
 def main():

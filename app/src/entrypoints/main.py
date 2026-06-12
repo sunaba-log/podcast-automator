@@ -12,16 +12,12 @@ import urllib.request
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from services import (
-    AudioAnalyzer,
-    AudioConverter,
-    GCSClient,
-    Notifier,
-    PodcastRssManager,
-    R2Client,
-    SecretManagerClient,
-    get_audio_info,
-)
+from infrastructure.ai_analyzer import AudioAnalyzer
+from infrastructure.notifier import Notifier
+from infrastructure.secret_manager import SecretManagerClient
+from infrastructure.storage import GCSClient, R2Client, get_audio_info
+from services.audio_converter import AudioConverter
+from services.rss_manager import PodcastRssManager
 from usecases import ProcessPodcastWorkflow, ProcessPodcastWorkflowInput
 
 if TYPE_CHECKING:

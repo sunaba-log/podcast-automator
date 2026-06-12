@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from services import DISCORD_MESSAGE_LIMIT, Notifier, split_message
+from infrastructure.notifier import DISCORD_MESSAGE_LIMIT, Notifier, split_message
 
 # 親ディレクトリのservicesモジュールをインポート
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -93,7 +93,7 @@ class TestSendDiscordMessage:
         mock_response.status_code = 204
 
         notifier = Notifier(webhook_url)
-        with patch("services.notifier.requests.post", return_value=mock_response) as mock_post:
+        with patch("infrastructure.notifier.requests.post", return_value=mock_response) as mock_post:
             result = notifier.send_discord_message(message=message)
 
             assert result is True
@@ -108,7 +108,7 @@ class TestSendDiscordMessage:
         mock_response.status_code = 204
 
         notifier = Notifier(webhook_url)
-        with patch("services.notifier.requests.post", return_value=mock_response) as mock_post:
+        with patch("infrastructure.notifier.requests.post", return_value=mock_response) as mock_post:
             result = notifier.send_discord_message(message=message)
 
             assert result is True
@@ -125,7 +125,7 @@ class TestSendDiscordMessage:
         mock_response.status_code = 204
 
         notifier = Notifier(webhook_url)
-        with patch("services.notifier.requests.post", return_value=mock_response) as mock_post:
+        with patch("infrastructure.notifier.requests.post", return_value=mock_response) as mock_post:
             result = notifier.send_discord_message(message=message, username=username)
 
             assert result is True
@@ -141,7 +141,7 @@ class TestSendDiscordMessage:
         mock_response = Mock()
         mock_response.status_code = 400  # エラーステータス
         notifier = Notifier(webhook_url)
-        with patch("services.notifier.requests.post", return_value=mock_response):
+        with patch("infrastructure.notifier.requests.post", return_value=mock_response):
             result = notifier.send_discord_message(message=message)
 
             assert result is False
@@ -151,7 +151,7 @@ class TestSendDiscordMessage:
         webhook_url = WEBHOOK_URL
         message = "Test message"
 
-        with patch("services.notifier.requests.post", side_effect=Exception("Connection error")):
+        with patch("infrastructure.notifier.requests.post", side_effect=Exception("Connection error")):
             notifier = Notifier(webhook_url)
             result = notifier.send_discord_message(message=message)
 

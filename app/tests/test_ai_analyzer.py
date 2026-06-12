@@ -2,14 +2,14 @@ import os  # noqa: I001
 from unittest.mock import MagicMock, patch
 
 import pytest
-from services import AudioAnalyzer
+from infrastructure.ai_analyzer import AudioAnalyzer
 
 
 class TestAudioAnalyzerInit:
     """AudioAnalyzerの初期化テスト."""
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_init_with_env_vars(self, mock_client):
         """環境変数からプロジェクトIDとリージョンを取得."""
         with patch.dict(
@@ -25,7 +25,7 @@ class TestAudioAnalyzerInit:
             assert analyzer.location == "asia-northeast1"
             mock_client.assert_called_once_with(vertexai=True, project="test-project", location="asia-northeast1")
 
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_init_with_explicit_params(self, mock_client):
         """明示的なパラメータで初期化."""
         analyzer = AudioAnalyzer(project_id="my-project", location="us-west1")
@@ -48,7 +48,7 @@ class TestAudioAnalyzerInit:
         {"GOOGLE_CLOUD_PROJECT": "test-project"},
         clear=True,
     )
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_init_default_location(self, mock_client):  # noqa: ARG002
         """デフォルトロケーションを使用."""
         analyzer = AudioAnalyzer()
@@ -60,7 +60,7 @@ class TestGenerateTranscript:
     """generate_transcript メソッドのテスト."""
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_generate_transcript_success(self, mock_client_class):
         """文字起こしの生成成功."""
         mock_client = MagicMock()
@@ -81,7 +81,7 @@ class TestGenerateTranscript:
         assert call_args.kwargs["model"] == "gemini-2.0-flash-001"
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_generate_transcript_custom_model(self, mock_client_class):
         """カスタムモデルIDで文字起こしを生成."""
         mock_client = MagicMock()
@@ -102,7 +102,7 @@ class TestSummarizeTranscript:
     """summarize_transcript メソッドのテスト."""
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_summarize_transcript_with_custom_prompt(self, mock_client_class):
         """カスタムプロンプトで要約を生成."""
         mock_client = MagicMock()
@@ -124,7 +124,7 @@ class TestSummarizeTranscript:
         assert custom_prompt in call_args.kwargs["contents"][0]
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_summarize_transcript_default_prompt(self, mock_client_class):
         """デフォルトプロンプトで要約を生成."""
         mock_client = MagicMock()
@@ -145,7 +145,7 @@ class TestSummarizeTranscript:
         assert transcript in content
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_summarize_transcript_config(self, mock_client_class):
         """GenerateContentConfig が正しく設定される."""
         mock_client = MagicMock()
@@ -164,7 +164,7 @@ class TestSummarizeTranscript:
         assert config.max_output_tokens == 2000
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_summarize_transcript_custom_model(self, mock_client_class):
         """カスタムモデルIDで要約を生成."""
         mock_client = MagicMock()

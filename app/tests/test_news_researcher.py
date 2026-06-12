@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from services.news_researcher import (
-    AINewsResearcher,
-    _build_research_prompt,
-    _resolve_credentials,
-)
+from services.news_researcher import AINewsResearcher, _build_research_prompt, _resolve_credentials
 from services.transcript_analyzer import MentionEvidence, TopicMatch
 
 # ── Fixtures / Helpers ─────────────────────────────────────────────────────────
@@ -134,10 +131,11 @@ class TestAINewsResearcher:
 
     @patch("services.news_researcher._resolve_credentials", return_value=None)
     @patch("services.news_researcher.genai.Client")
-    def test_research_returns_response_text(self, mock_client_cls, _mock_creds):
+    def test_research_returns_response_text(self, mock_client_cls, mock_creds):
         """research() が Gemini レスポンスのテキストをそのまま返すこと."""
-        mock_client_cls.return_value.models.generate_content.return_value = (
-            _make_mock_response("## ニュース\nAI関連の最新情報")
+        _ = mock_creds
+        mock_client_cls.return_value.models.generate_content.return_value = _make_mock_response(
+            "## ニュース\nAI関連の最新情報"
         )
         researcher = AINewsResearcher(project_id="test-project")
         result = researcher.research([_make_topic()])
@@ -145,8 +143,9 @@ class TestAINewsResearcher:
 
     @patch("services.news_researcher._resolve_credentials", return_value=None)
     @patch("services.news_researcher.genai.Client")
-    def test_research_empty_themes_returns_empty_string(self, mock_client_cls, _mock_creds):
+    def test_research_empty_themes_returns_empty_string(self, mock_client_cls, mock_creds):
         """テーマが空リストの場合、API を呼ばずに空文字列を返すこと."""
+        _ = mock_creds
         researcher = AINewsResearcher(project_id="test-project")
         result = researcher.research([])
         assert result == ""
@@ -154,35 +153,30 @@ class TestAINewsResearcher:
 
     @patch("services.news_researcher._resolve_credentials", return_value=None)
     @patch("services.news_researcher.genai.Client")
-    def test_research_propagates_api_error(self, mock_client_cls, _mock_creds):
+    def test_research_propagates_api_error(self, mock_client_cls, mock_creds):
         """Gemini API エラーが上位に伝播すること (non-fatal 制御は呼び出し元の責務)."""
-        mock_client_cls.return_value.models.generate_content.side_effect = RuntimeError(
-            "API error"
-        )
+        _ = mock_creds
+        mock_client_cls.return_value.models.generate_content.side_effect = RuntimeError("API error")
         researcher = AINewsResearcher(project_id="test-project")
         with pytest.raises(RuntimeError, match="API error"):
             researcher.research([_make_topic()])
 
     @patch("services.news_researcher._resolve_credentials", return_value=None)
     @patch("services.news_researcher.genai.Client")
-    def test_research_none_response_text_returns_empty_string(self, mock_client_cls, _mock_creds):
+    def test_research_none_response_text_returns_empty_string(self, mock_client_cls, mock_creds):
         """response.text が None の場合は空文字列を返すこと."""
-        mock_client_cls.return_value.models.generate_content.return_value = (
-            _make_mock_response(None)
-        )
+        _ = mock_creds
+        mock_client_cls.return_value.models.generate_content.return_value = _make_mock_response(None)
         researcher = AINewsResearcher(project_id="test-project")
         result = researcher.research([_make_topic()])
         assert result == ""
 
     @patch("services.news_researcher._resolve_credentials", return_value=None)
     @patch("services.news_researcher.genai.Client")
-    def test_research_passes_google_search_tool(self, mock_client_cls, _mock_creds):
+    def test_research_passes_google_search_tool(self, mock_client_cls, mock_creds):
         """research() が google_search tool 付きで generate_content を呼ぶこと."""
-        from google.genai import types
-
-        mock_client_cls.return_value.models.generate_content.return_value = (
-            _make_mock_response("output")
-        )
+        _ = mock_creds
+        mock_client_cls.return_value.models.generate_content.return_value = _make_mock_response("output")
         researcher = AINewsResearcher(project_id="test-project")
         researcher.research([_make_topic()])
 
@@ -193,22 +187,14 @@ class TestAINewsResearcher:
         # tools に GoogleSearch が含まれること
         assert config is not None
         assert config.tools is not None
-        assert any(
-            hasattr(t, "google_search") and t.google_search is not None
-            for t in config.tools
-        )
+        assert any(hasattr(t, "google_search") and t.google_search is not None for t in config.tools)
 
     @patch("services.news_researcher._resolve_credentials", return_value=None)
     @patch("services.news_researcher.genai.Client")
-    def test_research_with_grounding_metadata_logs_sources(
-        self, mock_client_cls, _mock_creds, caplog
-    ):
+    def test_research_with_grounding_metadata_logs_sources(self, mock_client_cls, mock_creds, caplog):
         """grounding metadata がある場合、INFO ログに sources 件数が出ること."""
-        import logging
-
-        mock_client_cls.return_value.models.generate_content.return_value = (
-            _make_mock_response_with_grounding("output")
-        )
+        _ = mock_creds
+        mock_client_cls.return_value.models.generate_content.return_value = _make_mock_response_with_grounding("output")
         researcher = AINewsResearcher(project_id="test-project")
         with caplog.at_level(logging.INFO, logger="services.news_researcher"):
             researcher.research([_make_topic()])
@@ -216,11 +202,10 @@ class TestAINewsResearcher:
 
     @patch("services.news_researcher._resolve_credentials", return_value=None)
     @patch("services.news_researcher.genai.Client")
-    def test_research_uses_configured_model(self, mock_client_cls, _mock_creds):
+    def test_research_uses_configured_model(self, mock_client_cls, mock_creds):
         """指定したモデル ID が generate_content に渡されること."""
-        mock_client_cls.return_value.models.generate_content.return_value = (
-            _make_mock_response("output")
-        )
+        _ = mock_creds
+        mock_client_cls.return_value.models.generate_content.return_value = _make_mock_response("output")
         researcher = AINewsResearcher(project_id="test-project", model="gemini-2.5-pro")
         researcher.research([_make_topic()])
 
@@ -230,8 +215,9 @@ class TestAINewsResearcher:
 
     @patch("services.news_researcher._resolve_credentials", return_value=None)
     @patch("services.news_researcher.genai.Client")
-    def test_researcher_initializes_with_vertexai(self, mock_client_cls, _mock_creds):
+    def test_researcher_initializes_with_vertexai(self, mock_client_cls, mock_creds):
         """AINewsResearcher が vertexai=True で Client を初期化すること."""
+        _ = mock_creds
         AINewsResearcher(project_id="my-project")
         call_kwargs = mock_client_cls.call_args.kwargs
         assert call_kwargs.get("vertexai") is True
@@ -246,8 +232,9 @@ class TestResolveCredentials:
 
     @patch("services.news_researcher.subprocess.run")
     @patch("services.news_researcher.genai")
-    def test_returns_none_when_both_fail(self, _mock_genai, mock_subprocess):
+    def test_returns_none_when_both_fail(self, mock_genai, mock_subprocess):
         """ADC も gcloud token も使えない場合 None を返すこと."""
+        _ = mock_genai
         # ADC 失敗は google.auth.default のパッチで制御
         mock_subprocess.side_effect = Exception("gcloud not found")
         with patch("google.auth.default", side_effect=Exception("No ADC")):

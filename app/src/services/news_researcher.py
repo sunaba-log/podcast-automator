@@ -11,11 +11,15 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 from typing import TYPE_CHECKING
 
+import google.auth
 from google import genai
+from google.auth.exceptions import DefaultCredentialsError
 from google.genai import types
+from google.oauth2 import credentials as google_oauth2_credentials
 
 if TYPE_CHECKING:
     from services.transcript_analyzer import TopicMatch
@@ -47,6 +51,14 @@ class AINewsResearcher:
         model: str = _DEFAULT_MODEL,
         credentials: object | None = None,
     ) -> None:
+        """Initialize the Gemini client with resolved credentials.
+
+        Args:
+            project_id: GCP プロジェクト ID。
+            location: Vertex AI のリージョン。
+            model: 使用する Gemini モデル ID。
+            credentials: 明示的な認証情報。None の場合は自動解決する。
+        """
         self._model = model
         resolved = credentials if credentials is not None else _resolve_credentials()
         self._client = genai.Client(
@@ -62,7 +74,7 @@ class AINewsResearcher:
         *,
         max_items: int = _DEFAULT_MAX_ITEMS,
     ) -> str:
-        """transcript テーマを基に直近ニュースを調査して Discord 向け markdown を返す.
+        """Transcript テーマを基に直近ニュースを調査して Discord 向け markdown を返す.
 
         Args:
             recurring_themes: AgendaResult.recurring_themes のリスト。
@@ -121,7 +133,7 @@ def _build_research_prompt(
     themes: list[TopicMatch],
     max_items: int,
 ) -> str:
-    """research prompt を構築する.
+    """Research prompt を構築する.
 
     Args:
         themes: 調査対象のテーマリスト。先頭 5 件を使用する。
@@ -131,11 +143,11 @@ def _build_research_prompt(
         Gemini に渡す prompt 文字列。
     """
     themes_text = "\n".join(
-        f"- {t.display_name}（直近 {t.episode_count} 回の収録で繰り返し登場、キーワード: {' / '.join(t.keywords[:4])}）"
+        f"- {t.display_name} (直近 {t.episode_count} 回の収録で繰り返し登場、キーワード: {' / '.join(t.keywords[:4])})"
         for t in themes[:5]
     )
 
-    return f"""sunabalog（エンジニア系ポッドキャスト）で直近繰り返し話題になっているテーマ：
+    return f"""sunabalog (エンジニア系ポッドキャスト) で直近繰り返し話題になっているテーマ:
 
 {themes_text}
 
@@ -143,24 +155,24 @@ def _build_research_prompt(
 「次の収録で話したくなる話題」を **強い順に 1〜{max_items} 件**だけ選んでください。
 3件揃えるために質の低い話題を入れないこと。強い話題が2件なら2件で止める。
 
-選ぶ基準（優先順）：
+選ぶ基準 (優先順):
 1. surprising connection — 予想外の角度でテーマとつながる、「そうきたか」という発見
 2. contradiction / tension — 最近の議論を揺さぶる逆説・「それって逆に価値下がる?」
 3. 「人間の役割どう変わる?」「これが当たり前になったら?」的な問いが生まれる
-4. テーマとの具体的な接点がある（「今週のAIニュースまとめ」的な汎用情報は避ける）
+4. テーマとの具体的な接点がある (「今週のAIニュースまとめ」的な汎用情報は避ける)
 
-前置き・挨拶・まとめ文は不要。以下の形式のみで出力してください：
+前置き・挨拶・まとめ文は不要。以下の形式のみで出力してください:
 
-1. **ニュースタイトル**（出典: メディア名またはURL）
-・最近の論点との接続: （1文。テーマ名の説明ではなく「〜という問いがあったが」「〜を話していたが逆に」の形で）
-・何が面白いか: （1文。意外性・逆説・驚き・人間の役割の変化など）
-・次に話せそうな問い: （1文）
+1. **ニュースタイトル** (出典: メディア名またはURL)
+・最近の論点との接続: (1文。テーマ名の説明ではなく「〜という問いがあったが」「〜を話していたが逆に」の形で)
+・何が面白いか: (1文。意外性・逆説・驚き・人間の役割の変化など)
+・次に話せそうな問い: (1文)
 
-（最大{max_items}件。強い話題のみ）
+(最大{max_items}件。強い話題のみ)
 
-💬 今週の切り口: （1文。今週どこから話すか）
+💬 今週の切り口: (1文。今週どこから話すか)
 
-制約：
+制約:
 - 1件あたり4行以内
 - 不確かな情報は「〜とのこと」等で断定を避ける
 """
@@ -181,20 +193,21 @@ def _resolve_credentials() -> object | None:
     """
     # 1st: Application Default Credentials (Cloud Run / `gcloud auth application-default login`)
     try:
-        import google.auth
-
         credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
         logger.debug("news_researcher: using Application Default Credentials")
         return credentials
-    except Exception:
+    except (DefaultCredentialsError, OSError, ValueError):
         logger.debug("news_researcher: ADC not available, trying gcloud token")
 
     # 2nd: gcloud access token (ローカル開発用 fallback)
-    try:
-        import google.oauth2.credentials
+    gcloud_bin = shutil.which("gcloud")
+    if not gcloud_bin:
+        logger.debug("news_researcher: gcloud executable not found")
+        return None
 
-        token = subprocess.run(
-            ["gcloud", "auth", "print-access-token"],
+    try:
+        token = subprocess.run(  # noqa: S603 - 実行コマンドは固定の gcloud バイナリのみ
+            [gcloud_bin, "auth", "print-access-token"],
             capture_output=True,
             text=True,
             check=True,
@@ -202,8 +215,8 @@ def _resolve_credentials() -> object | None:
         ).stdout.strip()
         if token:
             logger.debug("news_researcher: using gcloud access token")
-            return google.oauth2.credentials.Credentials(token=token)
-    except Exception:
+            return google_oauth2_credentials.Credentials(token=token)
+    except (FileNotFoundError, OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         logger.debug("news_researcher: gcloud token not available")
 
     # どちらも使えない場合は None → genai.Client のデフォルトに委ねる

@@ -11,12 +11,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from infrastructure.discord_fetcher import DiscordFetcher
+from infrastructure.notifier import Notifier
 from services.agenda_formatter import format_agenda_message
-from services.discord_fetcher import DiscordFetcher
 from services.news_fetcher import DEFAULT_RSS_SOURCES, NewsFetcher
 from services.news_relevance import match_news_to_agenda
 from services.news_researcher import AINewsResearcher
-from services.notifier import Notifier
 from services.transcript_analyzer import AgendaResult, TranscriptAnalyzer
 from usecases import GenerateWeeklyAgendaUsecase
 
