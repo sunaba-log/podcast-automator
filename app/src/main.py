@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import io
 import json
 import logging
-import mimetypes
 import os
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from services import (
@@ -24,6 +21,7 @@ from services import (
     SecretManagerClient,
     get_audio_info,
 )
+from usecases import ProcessPodcastWorkflow, ProcessPodcastWorkflowInput
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -136,11 +134,6 @@ def process_podcast_workflow() -> None:
         msg = "R2_BUCKET environment variable is required."
         logger.error(msg)
         raise ValueError(msg)
-    logger.info("GCS Bucket: %s, File: %s", GCS_BUCKET, GCS_TRIGGER_OBJECT_NAME)
-    gcs_path = Path(GCS_TRIGGER_OBJECT_NAME)
-    # Mime Type 判定(タイトル等のメタデータ取得用)  # noqa: RUF003
-    mime_type = mimetypes.guess_type(GCS_TRIGGER_OBJECT_NAME)[0] or "audio/x-m4a"
-    logger.info("Detected mime type: %s", mime_type)
     # secret manager から R2 と Discord の認証情報を取得
     if SECRET_NAME:
         secret_manager_client = SecretManagerClient(project_id=PROJECT_ID, secret_name=SECRET_NAME)
@@ -152,109 +145,37 @@ def process_podcast_workflow() -> None:
         discord_webhook_url = DISCORD_WEBHOOK_INFO_URL
 
     notifier_client = Notifier(discord_webhook_url=discord_webhook_url)
+    audio_analyzer = AudioAnalyzer(project_id=PROJECT_ID)
+    r2_client = R2Client(
+        project_id=PROJECT_ID,
+        endpoint_url=R2_ENDPOINT_URL,
+        bucket_name=R2_BUCKET,
+        access_key=r2_access_key,
+        secret_key=r2_secret_key,
+    )
+    gcs_client = GCSClient(project_id=PROJECT_ID)
 
-    try:
-        audio_analyzer = AudioAnalyzer(project_id=PROJECT_ID)
-        r2_client = R2Client(
+    usecase = ProcessPodcastWorkflow(
+        transcript_provider=audio_analyzer,
+        object_storage=r2_client,
+        blob_source=gcs_client,
+        notifier=notifier_client,
+        rss_manager_factory=PodcastRssManager,
+        audio_converter=AudioConverter.convert_to_mp3,
+        audio_info_reader=get_audio_info,
+        logger=logger,
+    )
+    usecase.run(
+        ProcessPodcastWorkflowInput(
             project_id=PROJECT_ID,
-            endpoint_url=R2_ENDPOINT_URL,
-            bucket_name=R2_BUCKET,
-            access_key=r2_access_key,
-            secret_key=r2_secret_key,
+            gcs_bucket=GCS_BUCKET,
+            gcs_trigger_object_name=GCS_TRIGGER_OBJECT_NAME,
+            r2_bucket=R2_BUCKET,
+            r2_key_prefix=R2_KEY_PREFIX,
+            ai_model_id=AI_MODEL_ID,
+            r2_custom_domain=R2_CUSTOM_DOMAIN,
         )
-        gcs_client = GCSClient(project_id=PROJECT_ID)
-
-        # RSS feedからエピソード情報等を取得
-        rss_feed = r2_client.download_file(f"{R2_KEY_PREFIX}/feed.xml")
-        # byte -> str
-        rss_feed = rss_feed.decode("utf-8")
-        rss_manager = PodcastRssManager(rss_xml=rss_feed)
-        latest_episode_number = rss_manager.get_total_episodes() + 1
-        logger.info("Latest Episode Number: %s", latest_episode_number)
-
-        # --- Phase 1: Fetch & Process (AI Analysis) ---
-        # Vertex AIは GCS URI を直接読めるため、ダウンロード不要で分析可能
-        logger.info("\n## Step1: Running AI Analysis... ##")
-        transcript = audio_analyzer.generate_transcript(
-            f"gs://{GCS_BUCKET}/{GCS_TRIGGER_OBJECT_NAME}", model_id=AI_MODEL_ID
-        )
-        # aI解析結果=議事録をDiscordに通知
-        notifier_client.send_discord_message(message=f"#{latest_episode_number} Meeting Transcript:\n\n{transcript}")
-        if transcript:
-            summary = audio_analyzer.summarize_transcript(transcript, model_id=AI_MODEL_ID)
-        else:
-            msg = "Failed to make transcript."
-            raise ValueError(msg)
-        logger.info("Generated Summary: %s", summary)
-        summary.title = f"#{latest_episode_number} {summary.title}"
-
-        # transcript と summary を保存しておくべきか
-        # 保存する場合、R2 に保存するか GCS に保存するかを検討
-        # 今回は保存せずWebhookで通知のみ
-        notifier_client.send_discord_message(
-            message=f"New Podcast Processed:\nTitle: {summary.title}\nDescription: {summary.description}"
-        )
-
-        # --- Phase 2: Upload to R2 ---
-        logger.info("\n## Step2: Converting to MP3 and Uploading to Cloudflare R2... ##")
-        audio_upload_mime_type = "audio/mpeg"
-        original_audio_bytes = gcs_client.download_blob_as_bytes(GCS_BUCKET, GCS_TRIGGER_OBJECT_NAME)
-        mp3_bytes = AudioConverter.convert_to_mp3(original_audio_bytes, gcs_path.suffix)
-        try:
-            file_size_bytes, duration_str = get_audio_info(
-                file_buffer=io.BytesIO(mp3_bytes),
-                audio_format="mp3",
-            )
-        except Exception:  # noqa: BLE001
-            logger.warning("Failed to get audio info")
-            file_size_bytes, duration_str = len(mp3_bytes), "00:00:00"
-
-        r2_remote_key = f"{R2_KEY_PREFIX}/ep/{latest_episode_number}/audio.mp3"
-        r2_client.upload_file(
-            file_content=mp3_bytes,
-            remote_key=r2_remote_key,
-            content_type=audio_upload_mime_type,
-            public=True,
-        )
-        public_url = r2_client.generate_public_url(remote_key=r2_remote_key, custom_domain=R2_CUSTOM_DOMAIN)
-        logger.info("Uploaded audio to R2: %s, Size: %s bytes, Duration: %s", public_url, file_size_bytes, duration_str)
-
-        # --- Phase 3: Update RSS ---
-        logger.info("\n## Updating RSS Feed... ##")
-        # rss file を R2 からダウンロードし、更新して再アップロード
-        new_episode_data = {
-            "title": summary.title,
-            "description": summary.description,
-            "audio_url": public_url,
-            "file_size": file_size_bytes,
-            "itunes_duration": duration_str,
-            "creator": "sunabalog",
-            "mime_type": audio_upload_mime_type,
-            "itunes_summary": summary.description,
-            "itunes_explicit": "no",
-            "itunes_season": 1,
-            "itunes_episode_number": latest_episode_number,
-            "itunes_episode_type": "full",
-        }
-        rss_manager.add_episode(new_episode_data)
-        rss_xml = rss_manager.get_rss_xml()
-        rss_xml_obj = rss_xml.encode("utf-8")
-        r2_client.upload_file(
-            file_content=rss_xml_obj,
-            remote_key=f"{R2_KEY_PREFIX}/feed.xml",
-            content_type="application/rss+xml; charset=utf-8",
-            public=True,
-        )
-
-        # --- Phase 4: Notify Success ---
-        logger.info("\n## Notifying Discord (Success)... ##")
-        notifier_client.send_discord_message(
-            message=f"Podcast Episode Published Successfully:\nTitle: {summary.title}\nURL: {public_url}"
-        )
-
-    except Exception as e:
-        logger.exception("Error occurred during podcast processing:")
-        notifier_client.send_discord_message(message=f"Podcast Processing Failed:\nError: {e}")
+    )
 
 
 def main() -> None:

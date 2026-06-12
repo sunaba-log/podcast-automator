@@ -24,6 +24,7 @@ from services.news_relevance import NewsCandidate, match_news_to_agenda
 from services.news_researcher import AINewsResearcher
 from services.notifier import Notifier
 from services.transcript_analyzer import AgendaResult, TranscriptAnalyzer
+from usecases import GenerateWeeklyAgendaUsecase
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
@@ -139,8 +140,6 @@ def _export_debug_json(result: AgendaResult, path: str) -> None:
 
 def send_weekly_agenda() -> None:
     """毎週水曜日に Discord へアジェンダを投稿する."""
-    logger.info("## Weekly Agenda Job Start ##")
-
     # webhook URL は mandatory。未設定は設定ミスとして即 fail させる。
     if not DISCORD_WEBHOOK_AGENDA_URL:
         msg = "DISCORD_WEBHOOK_AGENDA_URL is not set."
@@ -148,16 +147,15 @@ def send_weekly_agenda() -> None:
 
     logger.info("DISCORD_WEBHOOK_AGENDA_URL configured: %s", bool(DISCORD_WEBHOOK_AGENDA_URL))
 
-    # transcript 取得・Episode 再構築・ニュースマッチング
-    # 失敗しても reminder 通知自体は継続するため try/except で隔離する
-    result: AgendaResult | None = None
-    news_candidates: list[NewsCandidate] = []
-    try:
-        result, _warnings, news_candidates = _fetch_and_reconstruct()
-    except Exception:
-        logger.exception("Transcript analysis failed. Falling back to fixed-message notification.")
+    notifier = Notifier(discord_webhook_url=DISCORD_WEBHOOK_AGENDA_URL)
+    usecase = GenerateWeeklyAgendaUsecase(notifier=notifier, logger=logger)
 
-    if result is not None:
+    def build_agenda_message() -> str:
+        """Build agenda message from transcript/news analysis when available."""
+        result, _warnings, news_candidates = _fetch_and_reconstruct()
+        if result is None:
+            return AGENDA_MESSAGE
+
         episode_count = len(result.metadata.source_episode_numbers)
         logger.info(
             "AgendaResult: episodes=%d, schema_version=%s",
@@ -167,8 +165,6 @@ def send_weekly_agenda() -> None:
         if _DEBUG_JSON_PATH:
             _export_debug_json(result, _DEBUG_JSON_PATH)
 
-        # Phase 3-D: AI ニュース調査 (primary)
-        # 失敗した場合は RSS pipeline (news_candidates) を fallback として使用する。
         ai_news_section: str | None = None
         if _GCP_PROJECT_ID and result.recurring_themes:
             try:
@@ -176,9 +172,7 @@ def send_weekly_agenda() -> None:
                 ai_news_section = researcher.research(result.recurring_themes)
                 logger.info("AI news research succeeded (%d chars).", len(ai_news_section))
             except Exception:  # noqa: BLE001
-                logger.warning(
-                    "AI news research failed. Falling back to RSS candidates.", exc_info=True
-                )
+                logger.warning("AI news research failed. Falling back to RSS candidates.", exc_info=True)
         else:
             logger.info(
                 "AI news research skipped (GCP_PROJECT_ID=%s, themes=%d).",
@@ -186,25 +180,18 @@ def send_weekly_agenda() -> None:
                 len(result.recurring_themes),
             )
 
-        message = format_agenda_message(
+        return format_agenda_message(
             result,
             ai_news_section=ai_news_section,
             news_candidates=news_candidates if not ai_news_section else None,
         )
-    else:
-        # transcript analysis がスキップまたは失敗した場合は固定文に fallback
-        message = AGENDA_MESSAGE
 
-    notifier = Notifier(discord_webhook_url=DISCORD_WEBHOOK_AGENDA_URL)
-    success = notifier.send_discord_message(
-        message=message,
+    success = usecase.run(
+        message_builder=build_agenda_message,
+        fallback_message=AGENDA_MESSAGE,
         username="Podcast Scheduler",
     )
-
-    if success:
-        logger.info("Weekly agenda sent to Discord successfully.")
-    else:
-        logger.error("Failed to send weekly agenda to Discord.")
+    if not success:
         sys.exit(1)
 
 
