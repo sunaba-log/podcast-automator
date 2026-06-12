@@ -26,6 +26,7 @@ class R2Client(ObjectStorage):
         access_key: str | None = None,
         secret_key: str | None = None,
     ) -> None:
+        """Initialize R2 client with bucket settings and credentials source."""
         self.project_id = project_id
         self.endpoint_url = endpoint_url
         self.bucket_name = bucket_name
@@ -106,6 +107,7 @@ class GCSClient(BlobSource):
     """Google Cloud Storage client."""
 
     def __init__(self, project_id: str) -> None:
+        """Initialize GCS client bound to the specified project."""
         self.client = storage.Client(project=project_id)
 
     def download_blob(self, bucket_name: str, object_name: str, destination_file_path: str) -> None:
