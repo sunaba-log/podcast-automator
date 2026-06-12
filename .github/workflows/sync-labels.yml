@@ -1,0 +1,77 @@
+# 定義済みラベルの作成・更新・削除を行い、リポジトリのラベルを同期する。
+# main/master/developへのpush時、または手動実行(workflow_dispatch)で動作する。
+name: Sync Labels
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+    paths:
+      - ".github/workflows/sync-labels.yml"
+
+jobs:
+  sync-labels:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create or update labels
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const labels = [
+              { name: "enhance",  color: "0075CA", description: "新機能・機能改善 - 新機能の追加や既存機能の利便性を向上させ、ユーザー体験を洗練させるもの" },
+              { name: "refactor", color: "BFD4F2", description: "リファクタリング - ユーザーの行動や機能に直接的な影響を与えず、内部的な保守性や品質を向上させるもの" },
+              { name: "task",     color: "E4E669", description: "小タスク - 作業を細分化した小タスクに使う" },
+              { name: "release",  color: "00FFFF", description: "リリース - リリース作業やデプロイ対応" },
+              { name: "fix",      color: "FC8B53", description: "修正 - 軽微な修正や通常の修正" },
+              { name: "hotfix",   color: "D93F0B", description: "緊急修正 - 緊急度の高い本番修正" },
+              { name: "spike",    color: "FFF8DC", description: "調査・技術検証 - 不確実性の高い技術的な課題を調査し、開発方針を明確にする" },
+              { name: "chore",    color: "EEEEEE", description: "雑務・運用 - 開発活動や運用を円滑に進めるための支援作業。他の分類に属さない場合の値。" },
+            ];
+
+            const definedNames = new Set(labels.map(l => l.name));
+
+            const existing = await github.paginate(github.rest.issues.listLabelsForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            for (const label of existing) {
+              if (!definedNames.has(label.name)) {
+                await github.rest.issues.deleteLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                });
+                console.log(`Deleted: ${label.name}`);
+              }
+            }
+
+            for (const label of labels) {
+              try {
+                await github.rest.issues.updateLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description,
+                });
+                console.log(`Updated: ${label.name}`);
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description,
+                  });
+                  console.log(`Created: ${label.name}`);
+                } else {
+                  throw e;
+                }
+              }
+            }
