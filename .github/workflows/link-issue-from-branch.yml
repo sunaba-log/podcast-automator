@@ -1,0 +1,79 @@
+# PR作成時にブランチ名(xxx/123)からissue番号を抽出し、
+# PR bodyの「関連issue」セクションに Close #123 を自動追記する。
+name: Link issue from branch name
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  link_issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add related issue to PR body
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const branch = context.payload.pull_request.head.ref;
+
+            if (/^release\//.test(branch)) {
+              core.info(`Head branch is a release branch (${branch}). Skipping auto-link.`);
+              return;
+            }
+
+            const match = branch.match(/\/(\d+)$/);
+
+            if (!match) {
+              core.info(`No issue number found in branch name: ${branch}`);
+              return;
+            }
+
+            const issueNumber = match[1];
+            const body = context.payload.pull_request.body || "";
+
+            const alreadyLinked = new RegExp(`#${issueNumber}\\b`).test(body);
+            if (alreadyLinked) {
+              core.info(`#${issueNumber} is already referenced in PR body.`);
+              return;
+            }
+
+            const section = "# 関連issue";
+            const sectionIndex = body.indexOf(section);
+
+            let newBody;
+            if (sectionIndex !== -1) {
+              const afterSection = body.substring(sectionIndex);
+              const nextHeading = afterSection.substring(1).search(/^# /m);
+              const sectionEnd = nextHeading !== -1
+                ? sectionIndex + 1 + nextHeading
+                : body.length;
+              const sectionBody = body.substring(sectionIndex, sectionEnd);
+              const placeholderMatch = sectionBody.match(/^- *$/m);
+
+              if (placeholderMatch) {
+                const pos = sectionIndex + placeholderMatch.index;
+                newBody =
+                  body.substring(0, pos) +
+                  `- Close #${issueNumber}` +
+                  body.substring(pos + placeholderMatch[0].length);
+              } else {
+                newBody =
+                  body.substring(0, sectionEnd).trimEnd() +
+                  `\n- Close #${issueNumber}\n` +
+                  body.substring(sectionEnd);
+              }
+            } else {
+              newBody = body.trimEnd() + `\n\n# 関連issue\n<!-- 例: Close #123 / Close #123, #456 -->\n- Close #${issueNumber}\n`;
+            }
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              body: newBody,
+            });
+
+            core.info(`Linked issue #${issueNumber} in PR body.`);
