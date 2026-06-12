@@ -131,9 +131,7 @@ def _build_research_prompt(
         Gemini に渡す prompt 文字列。
     """
     themes_text = "\n".join(
-        f"- {t.display_name}"
-        f"（直近 {t.episode_count} 回の収録で繰り返し登場、"
-        f"キーワード: {' / '.join(t.keywords[:4])}）"
+        f"- {t.display_name}（直近 {t.episode_count} 回の収録で繰り返し登場、キーワード: {' / '.join(t.keywords[:4])}）"
         for t in themes[:5]
     )
 
@@ -185,9 +183,7 @@ def _resolve_credentials() -> object | None:
     try:
         import google.auth
 
-        credentials, _ = google.auth.default(
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
-        )
+        credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
         logger.debug("news_researcher: using Application Default Credentials")
         return credentials
     except Exception:
