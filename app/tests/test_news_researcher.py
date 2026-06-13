@@ -6,6 +6,7 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.auth.exceptions import DefaultCredentialsError
 
 from services.news_researcher import AINewsResearcher, _build_research_prompt, _resolve_credentials
 from services.transcript_analyzer import MentionEvidence, TopicMatch
@@ -236,16 +237,18 @@ class TestResolveCredentials:
         """ADC も gcloud token も使えない場合 None を返すこと."""
         _ = mock_genai
         # ADC 失敗は google.auth.default のパッチで制御
-        mock_subprocess.side_effect = Exception("gcloud not found")
-        with patch("google.auth.default", side_effect=Exception("No ADC")):
+        mock_subprocess.side_effect = FileNotFoundError("gcloud not found")
+        with patch("google.auth.default", side_effect=DefaultCredentialsError("No ADC")):
             result = _resolve_credentials()
         assert result is None
 
+    @patch("services.news_researcher.shutil.which", return_value="/usr/bin/gcloud")
     @patch("services.news_researcher.subprocess.run")
-    def test_returns_credentials_from_gcloud_token(self, mock_subprocess):
+    def test_returns_credentials_from_gcloud_token(self, mock_subprocess, _mock_which):
         """gcloud token が取得できる場合、Credentials を返すこと."""
+        _ = _mock_which
         mock_subprocess.return_value = MagicMock(stdout="fake-token-12345")
-        with patch("google.auth.default", side_effect=Exception("No ADC")):
+        with patch("google.auth.default", side_effect=DefaultCredentialsError("No ADC")):
             result = _resolve_credentials()
         # token が設定された Credentials オブジェクトであること
         assert result is not None

@@ -1,8 +1,14 @@
 import os  # noqa: I001
+from json import dumps
 from unittest.mock import MagicMock, patch
 
 import pytest
+from domain.models import Summary
 from infrastructure.ai_analyzer import AudioAnalyzer
+
+
+def _make_summary_json(title: str = "Episode Title", description: str = "Episode Description") -> str:
+    return dumps({"title": title, "description": description}, ensure_ascii=False)
 
 
 class TestAudioAnalyzerInit:
@@ -109,7 +115,10 @@ class TestSummarizeTranscript:
         mock_client_class.return_value = mock_client
 
         mock_response = MagicMock()
-        mock_response.text = "Summary of the conversation"
+        mock_response.text = _make_summary_json(
+            title="Custom Prompt Title",
+            description="Summary of the conversation",
+        )
         mock_client.models.generate_content.return_value = mock_response
 
         analyzer = AudioAnalyzer()
@@ -118,7 +127,9 @@ class TestSummarizeTranscript:
 
         result = analyzer.summarize_transcript(transcript, custom_prompt)
 
-        assert result == "Summary of the conversation"
+        assert isinstance(result, Summary)
+        assert result.title == "Custom Prompt Title"
+        assert result.description == "Summary of the conversation"
 
         call_args = mock_client.models.generate_content.call_args
         assert custom_prompt in call_args.kwargs["contents"][0]
@@ -131,17 +142,18 @@ class TestSummarizeTranscript:
         mock_client_class.return_value = mock_client
 
         mock_response = MagicMock()
-        mock_response.text = "Summary"
+        mock_response.text = _make_summary_json()
         mock_client.models.generate_content.return_value = mock_response
 
         analyzer = AudioAnalyzer()
         transcript = "Long transcript here..."
 
-        analyzer.summarize_transcript(transcript)
+        result = analyzer.summarize_transcript(transcript)
+        assert result.title == "Episode Title"
 
         call_args = mock_client.models.generate_content.call_args
         content = call_args.kwargs["contents"][0]
-        assert "Summarize the following transcript" in content
+        assert "以下の議事録の内容をもとに" in content
         assert transcript in content
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
@@ -152,7 +164,7 @@ class TestSummarizeTranscript:
         mock_client_class.return_value = mock_client
 
         mock_response = MagicMock()
-        mock_response.text = "Summary"
+        mock_response.text = _make_summary_json()
         mock_client.models.generate_content.return_value = mock_response
 
         analyzer = AudioAnalyzer()
@@ -161,7 +173,9 @@ class TestSummarizeTranscript:
         call_args = mock_client.models.generate_content.call_args
         config = call_args.kwargs["config"]
         assert config.temperature == 0.3
-        assert config.max_output_tokens == 2000
+        assert config.max_output_tokens == 12000
+        assert config.response_mime_type == "application/json"
+        assert config.response_json_schema == Summary.model_json_schema()
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("infrastructure.ai_analyzer.genai.Client")
@@ -171,7 +185,7 @@ class TestSummarizeTranscript:
         mock_client_class.return_value = mock_client
 
         mock_response = MagicMock()
-        mock_response.text = "Summary"
+        mock_response.text = _make_summary_json()
         mock_client.models.generate_content.return_value = mock_response
 
         analyzer = AudioAnalyzer()
