@@ -4,14 +4,8 @@ import json
 
 import pytest
 
-from services.discord_fetcher import DiscordMessage
-from services.transcript_analyzer import (
-    Episode,
-    PromptType,
-    SortPolicy,
-    TranscriptAnalyzer,
-    TranscriptBoundaryError,
-)
+from infrastructure.discord_fetcher import DiscordMessage
+from services.transcript_analyzer import Episode, PromptType, SortPolicy, TranscriptAnalyzer, TranscriptBoundaryError
 
 
 def _msg(

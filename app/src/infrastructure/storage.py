@@ -1,4 +1,4 @@
-"""Cloudflare R2 操作ライブラリ."""
+"""Cloudflare R2 and GCS infrastructure clients."""
 
 import io
 import json
@@ -9,17 +9,13 @@ from botocore.exceptions import ClientError
 from google.cloud import secretmanager_v1, storage
 from pydub import AudioSegment
 
+from domain.interfaces import BlobSource, ObjectStorage
+
 logger = logging.getLogger(__name__)
 
 
-class R2Client:
-    """Cloudflare R2 操作用のクライアント.
-
-    Methods:
-        - download_file(remote_key: str) -> bytes
-        - upload_file(file_content: bytes, remote_key: str, content_type: Optional[str] = None, public: bool = False) -> str
-        - generate_public_url(remote_key: str, custom_domain: Optional[str] = None) -> str
-    """
+class R2Client(ObjectStorage):
+    """Cloudflare R2 client."""
 
     def __init__(
         self,
@@ -30,19 +26,17 @@ class R2Client:
         access_key: str | None = None,
         secret_key: str | None = None,
     ) -> None:
-        """R2 操作用のクライアント."""
+        """Initialize R2 client with bucket settings and credentials source."""
         self.project_id = project_id
         self.endpoint_url = endpoint_url
         self.bucket_name = bucket_name
 
-        # Secret Manager から認証情報を取得
         if access_key and secret_key:
             self.access_key = access_key
             self.secret_key = secret_key
         else:
             self.access_key, self.secret_key = self._get_credentials(secret_name)
 
-        # S3 クライアントを初期化(R2は S3 互換API)  # noqa: RUF003
         self.client = boto3.client(
             "s3",
             endpoint_url=endpoint_url,
@@ -51,8 +45,8 @@ class R2Client:
             region_name="auto",
         )
 
-    def _get_credentials(self, secret_name: str | None) -> tuple:
-        """Secret Manager から R2 認証情報を取得."""
+    def _get_credentials(self, secret_name: str | None) -> tuple[str, str]:
+        """Get R2 credentials from Secret Manager."""
         if secret_name is None:
             raise ValueError("secret_name is required to get R2 credentials from Secret Manager.")
 
@@ -63,16 +57,16 @@ class R2Client:
 
             secret_data = json.loads(response.payload.data.decode("UTF-8"))
             return secret_data["r2_access_key"], secret_data["r2_secret_key"]
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to get R2 credentials")
             raise
 
     def download_file(self, remote_key: str) -> bytes:
-        """R2 からファイルをダウンロード."""
+        """Download a file from R2."""
         try:
             file_bytes = self.client.get_object(Bucket=self.bucket_name, Key=remote_key)["Body"].read()
             logger.info("Downloaded %s from R2", remote_key)
-        except ClientError as e:
+        except ClientError:
             logger.exception("Failed to download file from R2:")
             raise
         return file_bytes
@@ -85,7 +79,7 @@ class R2Client:
         *,
         public: bool = False,
     ) -> str:
-        """ファイルを R2 にアップロード."""
+        """Upload file bytes to R2."""
         try:
             extra_args = {}
             if content_type:
@@ -98,75 +92,44 @@ class R2Client:
             url = f"{self.endpoint_url}/{self.bucket_name}/{remote_key}"
             logger.info("Uploaded %s to R2: %s", remote_key, url)
             return url
-        except ClientError as e:
+        except ClientError:
             logger.exception("Failed to upload file to R2:")
             raise
 
     def generate_public_url(self, remote_key: str, custom_domain: str | None = None) -> str:
-        """R2 ファイルの公開 URL を生成."""
+        """Generate a public URL for an R2 object."""
         if custom_domain:
             return f"https://{custom_domain}/{remote_key}"
         return f"{self.endpoint_url}/{self.bucket_name}/{remote_key}"
 
 
-class GCSClient:
-    """GCS 操作用のクライアント.
-
-    Methods:
-        - download_blob(bucket_name: str, object_name: str, destination_file_path: str) -> None
-        - upload_blob(bucket_name: str, source_file_path: str, destination_object_name: str, content_type: Optional[str] = None) -> None
-        - get_blob_metadata(bucket_name: str, object_name: str) -> dict
-        - list_blobs(bucket_name: str, prefix: Optional[str] = None) -> list
-    """
+class GCSClient(BlobSource):
+    """Google Cloud Storage client."""
 
     def __init__(self, project_id: str) -> None:
-        """GCS 操作用のクライアント.
-
-        Args:
-            project_id: GCP プロジェクトID.
-        """
+        """Initialize GCS client bound to the specified project."""
         self.client = storage.Client(project=project_id)
 
     def download_blob(self, bucket_name: str, object_name: str, destination_file_path: str) -> None:
-        """GCS から blob をダウンロード.
-
-        Docs: https://docs.cloud.google.com/storage/docs/downloading-objects?hl=ja
-        Args:
-            bucket_name: GCS バケット名.
-            object_name: ダウンロードするオブジェクト名.
-            destination_file_path: ダウンロード先のローカルファイルパス.
-
-        Returns:
-            None
-        Raises:
-            Exception: ダウンロードに失敗した場合.
-        """
+        """Download blob to local file."""
         try:
             bucket = self.client.bucket(bucket_name)
             blob = bucket.blob(object_name)
             blob.download_to_filename(destination_file_path)
             logger.info("Downloaded gs://%s/%s to %s", bucket_name, object_name, destination_file_path)
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to download blob:")
             raise
 
     def download_blob_as_bytes(self, bucket_name: str, object_name: str) -> bytes:
-        """GCS から blob を bytes としてダウンロード.
-
-        Args:
-            bucket_name: GCS バケット名.
-            object_name: ダウンロードするオブジェクト名.
-
-        Returns:
-            バイナリデータ.
-        """
+        """Download blob as bytes."""
         try:
             bucket = self.client.bucket(bucket_name)
             blob = bucket.blob(object_name)
             file_bytes = blob.download_as_bytes()
             logger.info("Downloaded gs://%s/%s as bytes", bucket_name, object_name)
             return file_bytes
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to download blob as bytes:")
             raise
 
@@ -177,18 +140,18 @@ class GCSClient:
         destination_object_name: str,
         content_type: str | None = None,
     ) -> None:
-        """ファイルを GCS にアップロード."""
+        """Upload local file to GCS."""
         try:
             bucket = self.client.bucket(bucket_name)
             blob = bucket.blob(destination_object_name)
             blob.upload_from_filename(source_file_path, content_type=content_type)
             logger.info("Uploaded %s to gs://%s/%s", source_file_path, bucket_name, destination_object_name)
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to upload blob:")
             raise
 
     def get_blob_metadata(self, bucket_name: str, object_name: str) -> dict:
-        """Blob のメタデータを取得."""
+        """Get blob metadata."""
         try:
             bucket = self.client.bucket(bucket_name)
             blob = bucket.blob(object_name)
@@ -199,34 +162,30 @@ class GCSClient:
                 "content_type": blob.content_type,
                 "updated": blob.updated,
             }
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to get blob metadata:")
             raise
 
     def list_blobs(self, bucket_name: str, prefix: str | None = None) -> list:
-        """バケット内の blob をリスト."""
+        """List blobs in a bucket."""
         try:
             bucket = self.client.bucket(bucket_name)
             return list(bucket.list_blobs(prefix=prefix))
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to list blobs:")
             raise
 
 
 def get_audio_info(file_buffer: io.BytesIO, audio_format: str) -> list:
-    """音声ファイルの情報を取得する."""
-    # ファイルのサイズ(バイト数)を取得
+    """Get audio file size and duration information."""
     file_size_bytes = file_buffer.getbuffer().nbytes
     logger.info("File size: %d bytes", file_size_bytes)
 
-    # ボイスメモで収録したm4aファイルを読み込む
     sounds = AudioSegment.from_file(file=file_buffer, format=audio_format)
-    # 基本情報の表示
     logger.info("channel: %s", sounds.channels)
     logger.info("frame rate: %s", sounds.frame_rate)
     logger.info("duration: %s s", sounds.duration_seconds)
 
-    # 再生時間(例: "01:23:45")
     duration_seconds = int(sounds.duration_seconds)
     hours = duration_seconds // 3600
     minutes = (duration_seconds % 3600) // 60

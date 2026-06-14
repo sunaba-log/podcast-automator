@@ -10,7 +10,7 @@ R2 からファイルをダウンロードする簡易スクリプト。
 import argparse
 import os
 
-from services import GCSClient
+from infrastructure.storage import GCSClient
 
 
 def main():

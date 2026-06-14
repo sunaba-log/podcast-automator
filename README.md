@@ -1,18 +1,24 @@
 # podcast-automator
 
 このリポジトリは、GCP 上で **GCS への音声アップロード → Eventarc → Workflows → Cloud Run Jobs** の起動までを Terraform で構成するためのコードと、
-Cloud Run Jobs で実行される **テスト用の簡易 Python アプリ**（GCS → Cloudflare R2 転送と Discord 通知のみ）を含みます。
+Cloud Run Jobs で実行される Python アプリを含みます。
 
-**重要**: 現時点の `app/src/main.py` はテスト用に適当に作ったものです。
-音声処理や RSS 更新などは実装しておらず、GCS から R2 へ転送するだけです。
-実装済みの構成は `ARCHITECTURE.md` を参照してください。
+現行の app は以下を実装済みです。
+
+- GCS 音声の文字起こし・要約（Gemini）
+- Cloudflare R2 へのアップロード
+- RSS フィード更新
+- Discord 通知
+- Discord transcript からの週次アジェンダ生成
+
+実装済みの構成は ARCHITECTURE.md と app/README.md を参照してください。
 
 ## 構成
 
 ```
 .
 ├── app/                         # Python アプリ (Cloud Run Job 用)
-│   ├── src/main.py              # GCS → R2 転送 + Discord 通知
+│   ├── src/entrypoints/         # 実行エントリーポイント
 │   ├── tests/                   # pytest
 │   ├── pyproject.toml           # Python 3.12 / ruff / pytest 設定
 │   └── Dockerfile               # Cloud Run Job 用イメージ
@@ -26,11 +32,16 @@ Cloud Run Jobs で実行される **テスト用の簡易 Python アプリ**（G
 
 ## 現状のアプリ挙動
 
-`app/src/main.py` は次の動作のみを行います。
+アプリの実行モードは 2 つです。
 
-- `DISCORD_WEBHOOK_INFO_URL` があれば、開始・終了メッセージを送信
-- `GCS_TRIGGER_OBJECT_NAME` で指定された GCS オブジェクトを Cloudflare R2 に転送
-- 失敗時は `DISCORD_WEBHOOK_ERROR_URL` があればエラーメッセージを送信
+- Podcast Processing Job
+  - entrypoint: app/src/entrypoints/main.py
+  - 音声文字起こし、要約、R2 配信、RSS 更新、Discord 通知
+- Weekly Agenda Job
+  - entrypoint: app/src/entrypoints/agenda_main.py
+  - Discord transcript 解析、ニュース候補抽出、アジェンダ投稿
+
+詳細な環境変数やテスト手順は app/README.md を参照してください。
 
 ## ローカル開発 (app)
 
@@ -41,6 +52,12 @@ cd app
 make install
 make lint
 make test
+```
+
+フルテスト（除外なし）:
+
+```bash
+uv run pytest --cov=. tests -o addopts=''
 ```
 
 Docker ビルド:
@@ -109,18 +126,11 @@ make terraform-deploy-dev DEPLOY_COMMAND_EXTENSION="-auto-approve"
 
 ## 環境変数 (app)
 
-`app/.env.sample` に記載されています。
+最新の環境変数定義は以下を参照してください。
 
-```
-GCS_BUCKET=your-input-bucket-name
-GCS_TRIGGER_OBJECT_NAME=path/to/input/file.mp3
-DISCORD_WEBHOOK_INFO_URL=https://discord.example/webhook/info
-DISCORD_WEBHOOK_ERROR_URL=https://discord.example/webhook/error
-R2_BUCKET=your-r2-bucket-name
-CLOUDFLARE_ACCOUNT_ID=your-cloudflare-account-id
-CLOUDFLARE_ACCESS_KEY_ID=your-cloudflare-access-key-id
-CLOUDFLARE_SECRET_ACCESS_KEY=your-cloudflare-secret-access-key
-```
+- app/.env.sample
+- app/README.md
+- app/docs/ENVIRONMENT_AND_TEST_SPEC.md
 
 ## Dev Container について
 

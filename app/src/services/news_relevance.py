@@ -142,11 +142,11 @@ class KeywordScoringStrategy:
 
 
 def _kw_in_text(kw_lower: str, text_lower: str) -> bool:
-    """キーワードがテキストに含まれるか判定する.
+    r"""キーワードがテキストに含まれるか判定する.
 
     マッチ戦略はキーワードの種類によって分岐する:
 
-    * **ASCII single-word** (スペースなし・全 ASCII): word-boundary マッチ。
+        * **ASCII single-word** (スペースなし・全 ASCII): word-boundary マッチ。
       ``re.search(r'\\bkw\\b', text)`` を使用し、"ai" が "airport" や "trail" の
       部分文字列としてマッチすることを防ぐ。
     * **フレーズ** (スペースを含む): 従来の substring マッチ。

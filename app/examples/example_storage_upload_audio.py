@@ -11,7 +11,7 @@ import mimetypes
 import os
 import sys
 
-from services import R2Client
+from infrastructure.storage import R2Client
 
 
 def main():

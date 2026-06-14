@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from services.discord_fetcher import DiscordFetcher, DiscordMessage
+from infrastructure.discord_fetcher import DiscordFetcher, DiscordMessage
 
 
 def _raw_message(
@@ -33,7 +33,7 @@ class TestDiscordFetcher:
         mock_resp = MagicMock()
         mock_resp.json.return_value = raw
 
-        with patch("services.discord_fetcher.requests.get", return_value=mock_resp) as mock_get:
+        with patch("infrastructure.discord_fetcher.requests.get", return_value=mock_resp) as mock_get:
             fetcher = DiscordFetcher(bot_token="test-token")
             result = fetcher.fetch_messages(channel_id="ch123", limit=10)
 
@@ -48,7 +48,7 @@ class TestDiscordFetcher:
         mock_resp = MagicMock()
         mock_resp.json.return_value = [_raw_message()]
 
-        with patch("services.discord_fetcher.requests.get", return_value=mock_resp) as mock_get:
+        with patch("infrastructure.discord_fetcher.requests.get", return_value=mock_resp) as mock_get:
             fetcher = DiscordFetcher(bot_token="my-secret-token")
             fetcher.fetch_messages(channel_id="ch123")
 
@@ -60,7 +60,7 @@ class TestDiscordFetcher:
         mock_resp = MagicMock()
         mock_resp.json.return_value = []
 
-        with patch("services.discord_fetcher.requests.get", return_value=mock_resp) as mock_get:
+        with patch("infrastructure.discord_fetcher.requests.get", return_value=mock_resp) as mock_get:
             fetcher = DiscordFetcher(bot_token="tok")
             fetcher.fetch_messages(channel_id="ch", limit=200)
 
@@ -72,7 +72,7 @@ class TestDiscordFetcher:
         mock_resp = MagicMock()
         mock_resp.json.return_value = []
 
-        with patch("services.discord_fetcher.requests.get", return_value=mock_resp) as mock_get:
+        with patch("infrastructure.discord_fetcher.requests.get", return_value=mock_resp) as mock_get:
             fetcher = DiscordFetcher(bot_token="tok")
             fetcher.fetch_messages(channel_id="ch", limit=0)
 
@@ -84,7 +84,7 @@ class TestDiscordFetcher:
         mock_resp = MagicMock()
         mock_resp.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
 
-        with patch("services.discord_fetcher.requests.get", return_value=mock_resp):
+        with patch("infrastructure.discord_fetcher.requests.get", return_value=mock_resp):
             fetcher = DiscordFetcher(bot_token="tok")
             with pytest.raises(requests.HTTPError):
                 fetcher.fetch_messages(channel_id="ch")
@@ -95,7 +95,7 @@ class TestDiscordFetcher:
         mock_resp = MagicMock()
         mock_resp.json.return_value = raw
 
-        with patch("services.discord_fetcher.requests.get", return_value=mock_resp):
+        with patch("infrastructure.discord_fetcher.requests.get", return_value=mock_resp):
             fetcher = DiscordFetcher(bot_token="tok")
             result = fetcher.fetch_messages(channel_id="ch")
 

@@ -9,7 +9,7 @@ import os
 import sys
 
 import dotenv
-from services import GCSClient
+from infrastructure.storage import GCSClient
 
 dotenv.load_dotenv()
 

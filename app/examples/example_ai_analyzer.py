@@ -1,6 +1,6 @@
 import os
 
-from services import AudioAnalyzer
+from infrastructure.ai_analyzer import AudioAnalyzer
 
 project_id = os.environ.get("PROJECT_ID", "sunabalog-dev")
 gcs_uri = os.environ.get(
