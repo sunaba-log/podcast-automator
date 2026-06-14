@@ -242,13 +242,14 @@ class TestResolveCredentials:
             result = _resolve_credentials()
         assert result is None
 
-    @patch("services.news_researcher.shutil.which", return_value="/usr/bin/gcloud")
     @patch("services.news_researcher.subprocess.run")
-    def test_returns_credentials_from_gcloud_token(self, mock_subprocess, _mock_which):
+    def test_returns_credentials_from_gcloud_token(self, mock_subprocess):
         """gcloud token が取得できる場合、Credentials を返すこと."""
-        _ = _mock_which
         mock_subprocess.return_value = MagicMock(stdout="fake-token-12345")
-        with patch("google.auth.default", side_effect=DefaultCredentialsError("No ADC")):
+        with (
+            patch("services.news_researcher.shutil.which", return_value="/usr/bin/gcloud"),
+            patch("google.auth.default", side_effect=DefaultCredentialsError("No ADC")),
+        ):
             result = _resolve_credentials()
         # token が設定された Credentials オブジェクトであること
         assert result is not None
