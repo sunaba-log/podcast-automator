@@ -7,13 +7,14 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from infrastructure.discord_fetcher import DiscordFetcher
 from infrastructure.notifier import Notifier
 from services.agenda_formatter import format_agenda_message
+from services.firestore_manager import FirestoreManager
 from services.news_fetcher import DEFAULT_RSS_SOURCES, NewsFetcher
 from services.news_relevance import match_news_to_agenda
 from services.news_researcher import AINewsResearcher
@@ -38,6 +39,8 @@ AGENDA_MESSAGE = (
 class AgendaEnvConfig:
     """Resolved environment variables for weekly agenda job."""
 
+    project_id: str | None
+    podcast_id: str | None
     discord_webhook_agenda_url: str | None
     discord_bot_token: str | None
     discord_transcript_channel_id: str | None
@@ -49,12 +52,74 @@ class AgendaEnvConfig:
 def _load_agenda_env() -> AgendaEnvConfig:
     """Load environment variables for weekly agenda job."""
     return AgendaEnvConfig(
+        project_id=os.environ.get("PROJECT_ID"),
+        podcast_id=os.environ.get("PODCAST_ID"),
         discord_webhook_agenda_url=os.environ.get("DISCORD_WEBHOOK_AGENDA_URL"),
         discord_bot_token=os.environ.get("DISCORD_BOT_TOKEN"),
         discord_transcript_channel_id=os.environ.get("DISCORD_TRANSCRIPT_CHANNEL_ID"),
         transcript_fetch_limit=int(os.environ.get("TRANSCRIPT_FETCH_LIMIT", "50")),
         debug_json_path=os.environ.get("DEBUG_JSON_PATH"),
         gcp_project_id=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+    )
+
+
+def _build_target_period_string(generated_at: str) -> str:
+    """Build a readable ISO-week period string."""
+    normalized = generated_at.removesuffix("Z") + ("+00:00" if generated_at.endswith("Z") else "")
+    generated_dt = datetime.fromisoformat(normalized)
+    iso_year, iso_week, _ = generated_dt.isocalendar()
+    monday = generated_dt.date() - timedelta(days=generated_dt.weekday())
+    sunday = monday + timedelta(days=6)
+    return f"{iso_year}年 第{iso_week}週 ({monday:%m/%d} - {sunday:%m/%d})"
+
+
+def _build_related_news_payload(news_candidates: list[NewsCandidate]) -> list[dict[str, object]]:
+    """Convert news candidates into Firestore payloads."""
+    return [
+        {
+            "title": candidate.news_item.title,
+            "url": candidate.news_item.url,
+            "summary": candidate.news_item.summary or "",
+            "source_reason": f"{candidate.topic_match.display_name} との関連度 {candidate.score:.2f}",
+        }
+        for candidate in news_candidates[:3]
+    ]
+
+
+def _build_suggested_topics_payload(result: AgendaResult) -> list[dict[str, object]]:
+    """Convert agenda output into suggested topics."""
+    suggested_topics: list[dict[str, object]] = []
+    for theme in result.recurring_themes[:3]:
+        related_past_episodes = sorted({evidence.source_episode for evidence in theme.evidence})
+        suggested_points = [evidence.text for evidence in theme.evidence[:3]]
+        if not suggested_points and related_past_episodes:
+            suggested_points = [f"関連エピソード: {', '.join(map(str, related_past_episodes))}"]
+        suggested_topics.append(
+            {
+                "title": theme.display_name,
+                "description": f"{theme.display_name} について次回深掘りする。",
+                "suggested_points": suggested_points,
+                "related_past_episodes": related_past_episodes,
+            },
+        )
+    return suggested_topics
+
+
+def _save_topic_proposal(
+    *,
+    firestore_manager: FirestoreManager,
+    podcast_id: str,
+    result: AgendaResult,
+    news_candidates: list[NewsCandidate],
+) -> str:
+    """Persist a topic proposal derived from agenda analysis."""
+    return firestore_manager.create_topic_proposal(
+        podcast_id=podcast_id,
+        proposal_id=None,
+        target_period_string=_build_target_period_string(result.metadata.generated_at),
+        generated_at=result.metadata.generated_at,
+        related_news=_build_related_news_payload(news_candidates),
+        suggested_topics=_build_suggested_topics_payload(result),
     )
 
 
@@ -136,6 +201,7 @@ def send_weekly_agenda() -> None:
 
     notifier = Notifier(discord_webhook_url=cfg.discord_webhook_agenda_url)
     usecase = GenerateWeeklyAgendaUsecase(notifier=notifier, logger=logger)
+    firestore_manager = FirestoreManager(project_id=cfg.project_id) if cfg.project_id and cfg.podcast_id else None
 
     def build_agenda_message() -> str:
         result, _warnings, news_candidates = _fetch_and_reconstruct(cfg)
@@ -150,6 +216,15 @@ def send_weekly_agenda() -> None:
         )
         if cfg.debug_json_path:
             _export_debug_json(result, cfg.debug_json_path)
+
+        if firestore_manager is not None and cfg.podcast_id is not None:
+            proposal_id = _save_topic_proposal(
+                firestore_manager=firestore_manager,
+                podcast_id=cfg.podcast_id,
+                result=result,
+                news_candidates=news_candidates,
+            )
+            logger.info("Saved topic proposal to Firestore: %s", proposal_id)
 
         ai_news_section: str | None = None
         if cfg.gcp_project_id and result.recurring_themes:

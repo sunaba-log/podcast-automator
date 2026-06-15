@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import io
 import mimetypes
+import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -12,6 +14,7 @@ if TYPE_CHECKING:
     import logging
 
     from domain.interfaces import BlobSource, NotificationGateway, ObjectStorage, TranscriptProvider
+    from services.firestore_manager import FirestoreManager
 
 
 class PodcastFeedManager(Protocol):
@@ -53,6 +56,8 @@ class ProcessPodcastWorkflowInput:
     """Input parameters for podcast processing workflow."""
 
     project_id: str
+    podcast_id: str
+    sns_schedule_offset_hours: int
     gcs_bucket: str
     gcs_trigger_object_name: str
     r2_bucket: str
@@ -74,6 +79,7 @@ class ProcessPodcastWorkflow:
         rss_manager_factory: PodcastFeedManagerFactory,
         audio_converter: AudioConverterGateway,
         audio_info_reader: AudioInfoReader,
+        firestore_manager: FirestoreManager | None,
         logger: logging.Logger,
     ) -> None:
         """Initialize use case dependencies."""
@@ -84,6 +90,7 @@ class ProcessPodcastWorkflow:
         self._rss_manager_factory = rss_manager_factory
         self._audio_converter = audio_converter
         self._audio_info_reader = audio_info_reader
+        self._firestore_manager = firestore_manager
         self._logger = logger
 
     def run(self, request: ProcessPodcastWorkflowInput) -> None:
@@ -171,6 +178,59 @@ class ProcessPodcastWorkflow:
                 content_type="application/rss+xml; charset=utf-8",
                 public=True,
             )
+
+            if self._firestore_manager is not None:
+                episode_id = uuid.uuid4().hex
+                generated_at = datetime.now(UTC).isoformat()
+                scheduled_time = (datetime.now(UTC) + timedelta(hours=request.sns_schedule_offset_hours)).isoformat()
+                transcript_summary = summary.description
+                ai_generated_meta = {
+                    "title": summary.title,
+                    "description": summary.description,
+                    "prompt_version": "v1",
+                    "generated_at": generated_at,
+                }
+                show_notes_summary = {
+                    "overview": summary.description,
+                    "topics": [
+                        {
+                            "time": "00:00",
+                            "title": summary.title,
+                        },
+                    ],
+                }
+                audio_metadata = {
+                    "file_size_bytes": file_size_bytes,
+                    "duration_str": duration_str,
+                    "audio_url": public_url,
+                    "mime_type": audio_upload_mime_type,
+                }
+                self._firestore_manager.save_episode_content(
+                    podcast_id=request.podcast_id,
+                    episode_id=episode_id,
+                    episode_number=latest_episode_number,
+                    updated_at=generated_at,
+                    transcript_summary=transcript_summary,
+                    ai_generated_meta=ai_generated_meta,
+                    show_notes_summary=show_notes_summary,
+                    audio_metadata=audio_metadata,
+                )
+                self._firestore_manager.save_transcript_chunks(
+                    podcast_id=request.podcast_id,
+                    episode_id=episode_id,
+                    transcript=transcript,
+                )
+                self._firestore_manager.create_sns_promotion(
+                    podcast_id=request.podcast_id,
+                    episode_id=episode_id,
+                    promotion_id=None,
+                    generated_at=generated_at,
+                    scheduled_time=scheduled_time,
+                    episode_number=latest_episode_number,
+                    message=f"新しいエピソード: {summary.title}\n{public_url}",
+                    platform_urls={"apple": "", "spotify": "", "amazon": ""},
+                    hashtags=["#Podcast"],
+                )
 
             self._logger.info("\n## Notifying Discord (Success)... ##")
             self._notifier.send_discord_message(

@@ -13,6 +13,7 @@ dependencies = [
     "feedparser>=6.0.12",
     "functions-framework==3.*",
     "google-cloud-aiplatform>=1.132.0",
+  "google-cloud-firestore>=2.21.0",
     "google-cloud-secret-manager>=2.26.0",
     "google-cloud-storage>=3.7.0",
     "pydantic>=2.12.5",

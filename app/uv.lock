@@ -445,6 +445,23 @@ wheels = [
 ]
 
 [[package]]
+name = "google-cloud-firestore"
+version = "2.27.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "google-cloud-core" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4c/83/bdfd4387fadc5f44de1d0f97b456c648b6f87ec0b1818a9f7f477e6e6eab/google_cloud_firestore-2.27.0.tar.gz", hash = "sha256:5633cb164ef56ca6c73a807822191a56a98f6f10e76978c4f2eb197ae03383d2", size = 649244, upload-time = "2026-04-13T22:55:43.931Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6d/db/fc72c4279887cc95011f16e70200d021030f0261e6391fa52e3adfaaea25/google_cloud_firestore-2.27.0-py3-none-any.whl", hash = "sha256:cc2ea78bc2d4dcc928016d56802deacfda3c9bbda0a7d691ee73b41a2f1a80d7", size = 429806, upload-time = "2026-04-13T22:55:41.726Z" },
+]
+
+[[package]]
 name = "google-cloud-resource-manager"
 version = "1.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -966,6 +983,7 @@ dependencies = [
     { name = "feedparser" },
     { name = "functions-framework" },
     { name = "google-cloud-aiplatform" },
+    { name = "google-cloud-firestore" },
     { name = "google-cloud-secret-manager" },
     { name = "google-cloud-storage" },
     { name = "pydantic" },
@@ -989,6 +1007,7 @@ requires-dist = [
     { name = "feedparser", specifier = ">=6.0.12" },
     { name = "functions-framework", specifier = "==3.*" },
     { name = "google-cloud-aiplatform", specifier = ">=1.132.0" },
+    { name = "google-cloud-firestore", specifier = ">=2.21.0" },
     { name = "google-cloud-secret-manager", specifier = ">=2.26.0" },
     { name = "google-cloud-storage", specifier = ">=3.7.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
