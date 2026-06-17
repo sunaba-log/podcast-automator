@@ -81,6 +81,14 @@ resource "google_project_iam_member" "eventarc_service_agent" {
   ]
 }
 
+resource "google_project_iam_member" "job_firestore_write" {
+  project = var.project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${local.default_compute_service_account}"
+
+  depends_on = [google_project_service.required]
+}
+
 resource "google_storage_bucket_iam_member" "aiplatform_gcs_read" {
   bucket = google_storage_bucket.input.name
   role   = "roles/storage.objectViewer"

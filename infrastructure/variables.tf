@@ -112,3 +112,14 @@ variable "discord_transcript_channel_id" {
   description = "Discord channel ID for meeting transcripts. Empty string disables transcript fetch and preserves fallback path."
   default     = ""
 }
+
+variable "podcast_id" {
+  type        = string
+  description = "Firestore podcast document ID. Injected as PODCAST_ID into the Cloud Run job."
+}
+
+variable "sns_schedule_offset_hours" {
+  type        = number
+  description = "Hours after episode processing to schedule the first SNS promotion. Default 1 hour."
+  default     = 1
+}
