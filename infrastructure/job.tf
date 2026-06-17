@@ -37,7 +37,7 @@ module "cloud_run_job" {
     CLOUDFLARE_ACCESS_KEY_ID_SECRET_NAME     = var.cloudflare_access_key_id_secret_name
     CLOUDFLARE_SECRET_ACCESS_KEY_SECRET_NAME = var.cloudflare_secret_access_key_secret_name
     PODCAST_ID                               = var.podcast_id
-    SNS_SCHEDULE_OFFSET_HOURS               = var.sns_schedule_offset_hours
+    SNS_SCHEDULE_OFFSET_HOURS                = var.sns_schedule_offset_hours
   }
 
   depends_on = [google_project_service.required]
