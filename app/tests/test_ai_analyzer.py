@@ -1,15 +1,21 @@
 import os  # noqa: I001
+from json import dumps
 from unittest.mock import MagicMock, patch
 
 import pytest
-from services import AudioAnalyzer
+from domain.models import Summary
+from infrastructure.ai_analyzer import AudioAnalyzer
+
+
+def _make_summary_json(title: str = "Episode Title", description: str = "Episode Description") -> str:
+    return dumps({"title": title, "description": description}, ensure_ascii=False)
 
 
 class TestAudioAnalyzerInit:
     """AudioAnalyzerの初期化テスト."""
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_init_with_env_vars(self, mock_client):
         """環境変数からプロジェクトIDとリージョンを取得."""
         with patch.dict(
@@ -25,7 +31,7 @@ class TestAudioAnalyzerInit:
             assert analyzer.location == "asia-northeast1"
             mock_client.assert_called_once_with(vertexai=True, project="test-project", location="asia-northeast1")
 
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_init_with_explicit_params(self, mock_client):
         """明示的なパラメータで初期化."""
         analyzer = AudioAnalyzer(project_id="my-project", location="us-west1")
@@ -48,7 +54,7 @@ class TestAudioAnalyzerInit:
         {"GOOGLE_CLOUD_PROJECT": "test-project"},
         clear=True,
     )
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_init_default_location(self, mock_client):  # noqa: ARG002
         """デフォルトロケーションを使用."""
         analyzer = AudioAnalyzer()
@@ -60,7 +66,7 @@ class TestGenerateTranscript:
     """generate_transcript メソッドのテスト."""
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_generate_transcript_success(self, mock_client_class):
         """文字起こしの生成成功."""
         mock_client = MagicMock()
@@ -81,7 +87,7 @@ class TestGenerateTranscript:
         assert call_args.kwargs["model"] == "gemini-2.0-flash-001"
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_generate_transcript_custom_model(self, mock_client_class):
         """カスタムモデルIDで文字起こしを生成."""
         mock_client = MagicMock()
@@ -102,14 +108,17 @@ class TestSummarizeTranscript:
     """summarize_transcript メソッドのテスト."""
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_summarize_transcript_with_custom_prompt(self, mock_client_class):
         """カスタムプロンプトで要約を生成."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
         mock_response = MagicMock()
-        mock_response.text = "Summary of the conversation"
+        mock_response.text = _make_summary_json(
+            title="Custom Prompt Title",
+            description="Summary of the conversation",
+        )
         mock_client.models.generate_content.return_value = mock_response
 
         analyzer = AudioAnalyzer()
@@ -118,41 +127,44 @@ class TestSummarizeTranscript:
 
         result = analyzer.summarize_transcript(transcript, custom_prompt)
 
-        assert result == "Summary of the conversation"
+        assert isinstance(result, Summary)
+        assert result.title == "Custom Prompt Title"
+        assert result.description == "Summary of the conversation"
 
         call_args = mock_client.models.generate_content.call_args
         assert custom_prompt in call_args.kwargs["contents"][0]
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_summarize_transcript_default_prompt(self, mock_client_class):
         """デフォルトプロンプトで要約を生成."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
         mock_response = MagicMock()
-        mock_response.text = "Summary"
+        mock_response.text = _make_summary_json()
         mock_client.models.generate_content.return_value = mock_response
 
         analyzer = AudioAnalyzer()
         transcript = "Long transcript here..."
 
-        analyzer.summarize_transcript(transcript)
+        result = analyzer.summarize_transcript(transcript)
+        assert result.title == "Episode Title"
 
         call_args = mock_client.models.generate_content.call_args
         content = call_args.kwargs["contents"][0]
-        assert "Summarize the following transcript" in content
+        assert "以下の議事録の内容をもとに" in content
         assert transcript in content
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_summarize_transcript_config(self, mock_client_class):
         """GenerateContentConfig が正しく設定される."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
         mock_response = MagicMock()
-        mock_response.text = "Summary"
+        mock_response.text = _make_summary_json()
         mock_client.models.generate_content.return_value = mock_response
 
         analyzer = AudioAnalyzer()
@@ -161,17 +173,19 @@ class TestSummarizeTranscript:
         call_args = mock_client.models.generate_content.call_args
         config = call_args.kwargs["config"]
         assert config.temperature == 0.3
-        assert config.max_output_tokens == 2000
+        assert config.max_output_tokens == 12000
+        assert config.response_mime_type == "application/json"
+        assert config.response_json_schema == Summary.model_json_schema()
 
     @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
-    @patch("services.ai_analyzer.genai.Client")
+    @patch("infrastructure.ai_analyzer.genai.Client")
     def test_summarize_transcript_custom_model(self, mock_client_class):
         """カスタムモデルIDで要約を生成."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
         mock_response = MagicMock()
-        mock_response.text = "Summary"
+        mock_response.text = _make_summary_json()
         mock_client.models.generate_content.return_value = mock_response
 
         analyzer = AudioAnalyzer()

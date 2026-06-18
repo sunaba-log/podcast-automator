@@ -95,3 +95,31 @@ variable "r2_subdomain" {
   type        = string
   description = "Subdomain part for the custom domain (e.g., dev.podcast)."
 }
+
+variable "discord_webhook_agenda_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for Discord agenda webhook URL."
+}
+
+variable "discord_bot_token_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for Discord Bot Token (read-only, used for transcript channel access). Empty string disables the env injection."
+  default     = ""
+}
+
+variable "discord_transcript_channel_id" {
+  type        = string
+  description = "Discord channel ID for meeting transcripts. Empty string disables transcript fetch and preserves fallback path."
+  default     = ""
+}
+
+variable "podcast_id" {
+  type        = string
+  description = "Firestore podcast document ID. Injected as PODCAST_ID into the Cloud Run job."
+}
+
+variable "sns_schedule_offset_hours" {
+  type        = number
+  description = "Hours after episode processing to schedule the first SNS promotion. Default 1 hour."
+  default     = 1
+}

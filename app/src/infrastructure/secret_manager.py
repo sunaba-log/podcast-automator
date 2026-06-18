@@ -1,26 +1,30 @@
-import json  # noqa: D100
+"""Secret Manager infrastructure client."""
+
+import json
 import logging
 from dataclasses import dataclass
 
 from google.cloud import secretmanager_v1
+
+from domain.interfaces import SecretProvider
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class SecretJson:
-    """シークレット."""
+    """Secret payload model."""
 
     r2_access_key: str | None
     r2_secret_key: str | None
     discord_webhook_url: str | None
 
 
-class SecretManagerClient:
-    """Secret Manager クライアント."""
+class SecretManagerClient(SecretProvider):
+    """Google Secret Manager client wrapper."""
 
     def __init__(self, project_id: str, secret_name: str, version: str = "latest") -> None:
-        """Secret Manager クライアントを初期化."""
+        """Initialize secret client with project and secret metadata."""
         self.project_id = project_id
         self.secret_name = secret_name
         self.version = version
@@ -28,7 +32,7 @@ class SecretManagerClient:
         self.secrets = self._get_credentials()
 
     def _get_credentials(self) -> SecretJson:
-        """Secret Manager から 認証情報を取得."""
+        """Load secret JSON from Secret Manager."""
         try:
             secret_path = self.client.secret_version_path(self.project_id, self.secret_name, self.version)
             response = self.client.access_secret_version(request={"name": secret_path})
@@ -38,14 +42,14 @@ class SecretManagerClient:
                 r2_secret_key=secret_json.get("r2_secret_key"),
                 discord_webhook_url=secret_json.get("discord_webhook_url"),
             )
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to get credentials")
             raise
 
-    def get_r2_credentials(self) -> tuple:
-        """R2 認証情報を取得."""
+    def get_r2_credentials(self) -> tuple[str | None, str | None]:
+        """Get R2 credentials."""
         return self.secrets.r2_access_key, self.secrets.r2_secret_key
 
     def get_discord_webhook_url(self) -> str | None:
-        """Discord Webhook URL を取得."""
+        """Get Discord webhook URL."""
         return self.secrets.discord_webhook_url

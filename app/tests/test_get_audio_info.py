@@ -4,7 +4,7 @@ python -m pytest tests/test_get_audio_info.py -v.
 
 import io
 
-from services import get_audio_info
+from infrastructure.storage import get_audio_info
 
 
 class TestGetAudioInfo:

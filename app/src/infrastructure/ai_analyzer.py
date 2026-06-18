@@ -1,18 +1,17 @@
 """Gemini-based audio analysis and summary generation."""
 
 import logging
-import os  # noqa: D100
+import os
 from pathlib import Path
 
 from google import genai
 from google.genai.types import GenerateContentConfig, Part
-from pydantic import BaseModel, Field
 
-# 参考 https://github.com/GoogleCloudPlatform/generative-ai/blob/main/gemini/use-cases/multimodal-sentiment-analysis/intro_to_multimodal_sentiment_analysis.ipynb
+from domain.interfaces import TranscriptProvider
+from domain.models import Summary
 
 logger = logging.getLogger(__name__)
 
-# Gemini対応の音声フォーマットマッピング
 AUDIO_FORMAT_MAPPING = {
     "aac": "audio/aac",
     "aiff": "audio/aiff",
@@ -30,42 +29,14 @@ AUDIO_FORMAT_MAPPING = {
 }
 
 
-# 構造化出力用モデル
-# https://ai.google.dev/gemini-api/docs/structured-output?hl=ja&example=recipe
-class Summary(BaseModel):
-    """音声要約の構造化出力モデル."""
-
-    title: str = Field(..., description="会議の見出し")
-    description: str = Field(..., description="会議内容の説明文")
-
-
-class AudioAnalyzer:
-    """Gemini APIを使った音声分析クラス.
-
-    音声ファイルの文字起こしと要約を生成する機能を提供。
-
-    Args:
-        project_id: GCPプロジェクトID. 指定しない場合は環境変数から取得.
-        location: リージョン. デフォルトは us-central1.
-
-    Raises:
-        ValueError: project_idが指定されていない場合.
-
-    Methods:
-        generate_transcript(gcs_uri, model_id): 音声ファイルの文字起こしを生成.
-        summarize_transcript(transcript, prompt, model_id): 文字起こしの要約を生成.
-    """
+class AudioAnalyzer(TranscriptProvider):
+    """Gemini API based audio analysis."""
 
     DEFAULT_MODEL_ID = "gemini-2.0-flash-001"
     DEFAULT_LOCATION = "us-central1"
 
     def __init__(self, project_id: str | None = None, location: str | None = None) -> None:
-        """AudioAnalyzerを初期化.
-
-        Args:
-            project_id: GCPプロジェクトID. 指定しない場合は環境変数から取得.
-            location: リージョン. デフォルトは us-central1.
-        """
+        """Initialize analyzer with project and location settings."""
         self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
         if not self.project_id:
             raise ValueError("project_id must be provided or set in GOOGLE_CLOUD_PROJECT env var")
@@ -74,17 +45,6 @@ class AudioAnalyzer:
 
     @staticmethod
     def _get_mime_type(gcs_uri: str) -> str:
-        """URIから拡張子を取得し、対応するMIMEタイプを返す.
-
-        Args:
-            gcs_uri: GCS上のファイルのURI (例: gs://bucket/audio.m4a).
-
-        Returns:
-            MIMEタイプ文字列.
-
-        Raises:
-            ValueError: 対応していない拡張子の場合.
-        """
         file_path = Path(gcs_uri)
         extension = file_path.suffix.lstrip(".").lower()
 
@@ -96,21 +56,8 @@ class AudioAnalyzer:
         return AUDIO_FORMAT_MAPPING[extension]
 
     def generate_transcript(self, gcs_uri: str, model_id: str | None = None) -> str | None:
-        """Geminiモデルを使って音声ファイルの文字起こしを生成.
-
-        Args:
-            gcs_uri: GCS上の音声ファイルのURI (例: gs://bucket/audio.m4a).
-            model_id: 使用するモデルID. デフォルトは gemini-2.0-flash-001.
-
-        Returns:
-            生成された文字起こしテキスト.
-
-        Raises:
-            ValueError: 対応していない音声フォーマットの場合.
-        """
+        """Generate transcript text from an audio object in GCS."""
         model_id = model_id or self.DEFAULT_MODEL_ID
-
-        # URIから拡張子を取得してMIMEタイプを決定
         mime_type = self._get_mime_type(gcs_uri)
 
         audio_part = Part.from_uri(
@@ -137,16 +84,7 @@ class AudioAnalyzer:
         return response.text
 
     def summarize_transcript(self, transcript: str, prompt: str | None = None, model_id: str | None = None) -> Summary:
-        """Geminiモデルを使って文字起こしの要約を生成.
-
-        Args:
-            transcript: 文字起こしテキスト.
-            prompt: カスタムプロンプト. 指定しない場合はデフォルトプロンプトを使用.
-            model_id: 使用するモデルID. デフォルトは gemini-2.0-flash-001.
-
-        Returns:
-            生成された要約テキスト.
-        """
+        """Generate a structured summary from transcript text."""
         model_id = model_id or self.DEFAULT_MODEL_ID
 
         if not prompt:
@@ -191,7 +129,6 @@ descriptionの出力例:
             raise ValueError("No response received from the model.")
 
         text = response.text.strip()
-        # 末尾が '}' で終わっているかチェックし、不完全ならエラーとして処理
         if not text.endswith("}"):
             logger.error("Model output truncated or incomplete JSON. response.text=%s", text)
             raise ValueError(
@@ -202,7 +139,6 @@ descriptionの出力例:
             return Summary.model_validate_json(text)
         except Exception as err:
             logger.warning("Summary JSON validation failed. response.text=%s", text)
-            # Best-effort recovery if the model emits surrounding text.
             start = text.find("{")
             end = text.rfind("}")
             if start != -1 and end != -1 and end > start:
@@ -216,12 +152,8 @@ descriptionの出力例:
             raise
 
 
-# 後方互換性のための関数ラッパー
 def generate_transcript_with_gemini(gcs_uri: str) -> str | None:
-    """Geminiモデルを使って音声ファイルの文字起こしを生成.
-
-    Deprecated: AudioAnalyzer.generate_transcript() を使用してください.
-    """
+    """Deprecated helper wrapper."""
     analyzer = AudioAnalyzer()
     if not gcs_uri:
         raise ValueError("gcs_uri must be provided.")
@@ -231,9 +163,6 @@ def generate_transcript_with_gemini(gcs_uri: str) -> str | None:
 def summarize_transcript_with_gemini(
     transcript: str, prompt: str | None = None, model_id: str = "gemini-2.0-flash-001"
 ) -> Summary:
-    """Geminiモデルを使って文字起こしの要約を生成.
-
-    Deprecated: AudioAnalyzer.summarize_transcript() を使用してください.
-    """
+    """Deprecated helper wrapper."""
     analyzer = AudioAnalyzer()
     return analyzer.summarize_transcript(transcript, prompt, model_id)
