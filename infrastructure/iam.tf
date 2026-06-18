@@ -92,9 +92,23 @@ resource "google_project_iam_member" "job_firestore_write" {
 resource "google_storage_bucket_iam_member" "aiplatform_gcs_read" {
   bucket = google_storage_bucket.input.name
   role   = "roles/storage.objectViewer"
-  member = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-aiplatform.iam.gserviceaccount.com"
+  member = "serviceAccount:${google_project_service_identity.aiplatform.email}"
 
-  depends_on = [google_project_service.required]
+  depends_on = [
+    google_project_service.required,
+    google_project_service_identity.aiplatform,
+  ]
+}
+
+resource "google_project_iam_member" "aiplatform_service_agent_role" {
+  project = var.project_id
+  role    = "roles/aiplatform.serviceAgent"
+  member  = "serviceAccount:${google_project_service_identity.aiplatform.email}"
+
+  depends_on = [
+    google_project_service.required,
+    google_project_service_identity.aiplatform,
+  ]
 }
 
 # Cloud Scheduler サービスエージェントが compute SA の OAuth2 アクセストークンを生成できるよう許可
