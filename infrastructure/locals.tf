@@ -2,6 +2,7 @@ locals {
   required_services = [
     "artifactregistry.googleapis.com",
     "cloudscheduler.googleapis.com",
+    "sqladmin.googleapis.com",
     "compute.googleapis.com",
     "eventarc.googleapis.com",
     "iam.googleapis.com",

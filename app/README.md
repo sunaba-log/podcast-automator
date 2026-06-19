@@ -91,6 +91,10 @@ cp .env.sample .env
 
 変数仕様は docs/ENVIRONMENT_AND_TEST_SPEC.md を参照してください。
 
+Podcast Processing Jobでは、`DATABASE_URL`でCloud SQLへ接続します。Cloud Run Jobでは
+Cloud SQL Unix socketを`/cloudsql`へマウントし、GCSオブジェクトパスから取得した
+`podcast_id` / `episode_id`で処理状態を更新します。
+
 ## 実行方法
 
 ### Podcast Processing Job

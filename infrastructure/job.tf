@@ -11,6 +11,7 @@ module "cloud_run_job" {
   docker_build_result_image_name = "podcast-automator-app:latest"
   job_name                       = "${var.system}-app-${var.environment}"
   service_account_email          = local.default_compute_service_account
+  cloud_sql_instances            = var.cloud_sql_instance_connection_name == "" ? [] : [var.cloud_sql_instance_connection_name]
 
   timeout            = "3600s"
   memory             = "8Gi"
@@ -38,6 +39,10 @@ module "cloud_run_job" {
     CLOUDFLARE_SECRET_ACCESS_KEY_SECRET_NAME = var.cloudflare_secret_access_key_secret_name
     PODCAST_ID                               = var.podcast_id
     SNS_SCHEDULE_OFFSET_HOURS                = var.sns_schedule_offset_hours
+  }
+
+  secret_environment_variables = {
+    DATABASE_URL = var.database_url_secret_name
   }
 
   depends_on = [google_project_service.required]

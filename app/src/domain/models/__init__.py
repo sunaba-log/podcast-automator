@@ -13,6 +13,7 @@ from .agenda import (
     TopicMatch,
 )
 from .common import DiscordMessage, NewsItem, Summary
+from .episode import EpisodeObjectReference
 
 __all__ = [
     "ActionItem",
@@ -21,6 +22,7 @@ __all__ = [
     "DiscordMessage",
     "DiscussionPrompt",
     "Episode",
+    "EpisodeObjectReference",
     "MentionEvidence",
     "NewsItem",
     "PromptType",

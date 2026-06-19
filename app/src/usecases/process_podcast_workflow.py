@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import io
 import mimetypes
-import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+from domain.models import EpisodeObjectReference
+
 if TYPE_CHECKING:
     import logging
 
-    from domain.interfaces import BlobSource, NotificationGateway, ObjectStorage, TranscriptProvider
+    from domain.interfaces import BlobSource, EpisodeRepository, NotificationGateway, ObjectStorage, TranscriptProvider
     from services.firestore_manager import FirestoreManager
 
 
@@ -56,7 +57,6 @@ class ProcessPodcastWorkflowInput:
     """Input parameters for podcast processing workflow."""
 
     project_id: str
-    podcast_id: str
     sns_schedule_offset_hours: int
     gcs_bucket: str
     gcs_trigger_object_name: str
@@ -80,6 +80,7 @@ class ProcessPodcastWorkflow:
         audio_converter: AudioConverterGateway,
         audio_info_reader: AudioInfoReader,
         firestore_manager: FirestoreManager | None,
+        episode_repository: EpisodeRepository,
         logger: logging.Logger,
     ) -> None:
         """Initialize use case dependencies."""
@@ -91,16 +92,23 @@ class ProcessPodcastWorkflow:
         self._audio_converter = audio_converter
         self._audio_info_reader = audio_info_reader
         self._firestore_manager = firestore_manager
+        self._episode_repository = episode_repository
         self._logger = logger
 
     def run(self, request: ProcessPodcastWorkflowInput) -> None:
         """Execute podcast workflow and emit notifications for success/failure."""
         self._logger.info("GCS Bucket: %s, File: %s", request.gcs_bucket, request.gcs_trigger_object_name)
+        episode_ref = EpisodeObjectReference.parse(request.gcs_trigger_object_name)
         gcs_path = Path(request.gcs_trigger_object_name)
         audio_source_mime_type = mimetypes.guess_type(request.gcs_trigger_object_name)[0] or "audio/x-m4a"
         self._logger.info("Detected mime type: %s", audio_source_mime_type)
 
         try:
+            self._episode_repository.mark_processing(
+                podcast_id=episode_ref.podcast_id,
+                episode_id=episode_ref.episode_id,
+                source_audio_path=episode_ref.object_path,
+            )
             rss_feed_bytes = self._object_storage.download_file(f"{request.r2_key_prefix}/feed.xml")
             rss_manager = self._rss_manager_factory(rss_xml=rss_feed_bytes.decode("utf-8"))
             latest_episode_number = rss_manager.get_total_episodes() + 1
@@ -180,7 +188,6 @@ class ProcessPodcastWorkflow:
             )
 
             if self._firestore_manager is not None:
-                episode_id = uuid.uuid4().hex
                 generated_at = datetime.now(UTC).isoformat()
                 scheduled_time = (datetime.now(UTC) + timedelta(hours=request.sns_schedule_offset_hours)).isoformat()
                 transcript_summary = summary.description
@@ -206,8 +213,8 @@ class ProcessPodcastWorkflow:
                     "mime_type": audio_upload_mime_type,
                 }
                 self._firestore_manager.save_episode_content(
-                    podcast_id=request.podcast_id,
-                    episode_id=episode_id,
+                    podcast_id=str(episode_ref.podcast_id),
+                    episode_id=str(episode_ref.episode_id),
                     episode_number=latest_episode_number,
                     updated_at=generated_at,
                     transcript_summary=transcript_summary,
@@ -216,13 +223,13 @@ class ProcessPodcastWorkflow:
                     audio_metadata=audio_metadata,
                 )
                 self._firestore_manager.save_transcript_chunks(
-                    podcast_id=request.podcast_id,
-                    episode_id=episode_id,
+                    podcast_id=str(episode_ref.podcast_id),
+                    episode_id=str(episode_ref.episode_id),
                     transcript=transcript,
                 )
                 self._firestore_manager.create_sns_promotion(
-                    podcast_id=request.podcast_id,
-                    episode_id=episode_id,
+                    podcast_id=str(episode_ref.podcast_id),
+                    episode_id=str(episode_ref.episode_id),
                     promotion_id=None,
                     generated_at=generated_at,
                     scheduled_time=scheduled_time,
@@ -232,10 +239,42 @@ class ProcessPodcastWorkflow:
                     hashtags=["#Podcast"],
                 )
 
+            self._episode_repository.mark_completed(
+                podcast_id=episode_ref.podcast_id,
+                episode_id=episode_ref.episode_id,
+                title=summary.title,
+                description=summary.description,
+                audio_url=public_url,
+                duration_seconds=_duration_to_seconds(duration_str),
+            )
             self._logger.info("\n## Notifying Discord (Success)... ##")
             self._notifier.send_discord_message(
                 message=f"Podcast Episode Published Successfully:\nTitle: {summary.title}\nURL: {public_url}"
             )
         except Exception as err:
             self._logger.exception("Error occurred during podcast processing:")
+            try:
+                self._episode_repository.mark_failed(
+                    podcast_id=episode_ref.podcast_id,
+                    episode_id=episode_ref.episode_id,
+                    error_message=str(err),
+                )
+            except Exception:  # noqa: BLE001
+                self._logger.exception("Failed to persist episode failure state")
             self._notifier.send_discord_message(message=f"Podcast Processing Failed:\nError: {err}")
+            raise
+
+
+def _duration_to_seconds(duration: str) -> int | None:
+    """Convert HH:MM:SS duration text to seconds."""
+    duration_part_count = 3
+    parts = duration.split(":")
+    if len(parts) != duration_part_count:
+        return None
+    try:
+        hours, minutes, seconds = (int(part) for part in parts)
+    except ValueError:
+        return None
+    if hours < 0 or minutes not in range(60) or seconds not in range(60):
+        return None
+    return hours * 3600 + minutes * 60 + seconds

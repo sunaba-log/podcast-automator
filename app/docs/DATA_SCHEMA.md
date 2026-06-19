@@ -45,10 +45,14 @@ erDiagram
         INT podcast_id FK "REFERENCES podcasts"
         VARCHAR(255) title
         TEXT description
-        TEXT audio_file_path "R2/GCSの音声データパス"
+        TEXT source_audio_path "GCS入力オブジェクトパス"
+        TEXT audio_file_path "公開後のR2音声URL"
+        VARCHAR(20) status "uploaded/processing/completed/failed"
         INT duration_seconds "再生時間(秒)"
+        TEXT processing_error
         TIMESTAMP published_at
         TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 ```
 
@@ -90,10 +94,16 @@ erDiagram
 | podcast_id | INT | FK -> podcasts.podcast_id, NOT NULL | 所属番組 |
 | title | VARCHAR(255) | NOT NULL | エピソードタイトル |
 | description | TEXT | NULL | 説明文 |
-| audio_file_path | TEXT | NOT NULL | 音声ファイルパス |
+| source_audio_path | TEXT | NOT NULL | `podcasts/{podcast_id}/episodes/{episode_id}/source/{filename}` |
+| audio_file_path | TEXT | NULL | 処理完了後の公開音声URL |
+| status | VARCHAR(20) | NOT NULL | uploaded, processing, completed, failed |
 | duration_seconds | INT | NULL | 再生時間（秒） |
+| processing_error | TEXT | NULL | 処理失敗時のエラー概要 |
+| processing_started_at | TIMESTAMP | NULL | Automator処理開始日時 |
+| processing_completed_at | TIMESTAMP | NULL | Automator処理終了日時 |
 | published_at | TIMESTAMP | NULL | 公開日時 |
 | created_at | TIMESTAMP | NOT NULL, DEFAULT now() | 作成日時 |
+| updated_at | TIMESTAMP | NOT NULL, DEFAULT now() | 最終更新日時 |
 
 ## 3. Firestore ドキュメント構造仕様
 
@@ -207,6 +217,7 @@ podcasts/{podcast_id}/topic_proposals/{proposal_id}
 1. podcast_ownerships.role は owner または editor を許容値とする
 2. episodes.duration_seconds は 0 以上
 3. episodes.published_at は episodes.created_at 以降
+4. episodes.status は uploaded, processing, completed, failed のいずれか
 
 ### PostgreSQL 推奨インデックス
 
@@ -244,7 +255,24 @@ podcasts/{podcast_id}/topic_proposals/{proposal_id}
 4. 投稿予約バッチ（Cloud Run）を collectionGroup(sns_promotions) ベースで接続
 5. 運用開始後、検索頻度に応じて追加インデックスを作成
 
-## 7. Open Questions
+## 7. Episode Processing Contract
+
+`podcast-ui`が発行するGCSオブジェクトパスをリポジトリ間のID契約とする。
+
+```text
+podcasts/{podcast_id}/episodes/{episode_id}/source/{filename}.mp3
+```
+
+`podcast-automator`は環境変数に固定されたIDや独自UUIDを使用せず、このパスからIDを抽出する。
+
+処理状態は次の順でCloud SQLへ反映する。
+
+```text
+uploaded -> processing -> completed
+                       \-> failed
+```
+
+## 8. Open Questions
 
 1. podcast_ownerships.role に viewer を含めるか
 2. sns_promotions.status の状態遷移を pending -> success/failed 以外に拡張するか

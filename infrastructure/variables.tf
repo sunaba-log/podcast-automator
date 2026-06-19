@@ -118,6 +118,17 @@ variable "podcast_id" {
   description = "Firestore podcast document ID. Injected as PODCAST_ID into the Cloud Run job."
 }
 
+variable "database_url_secret_name" {
+  type        = string
+  description = "Secret Manager secret containing the PostgreSQL DATABASE_URL."
+}
+
+variable "cloud_sql_instance_connection_name" {
+  type        = string
+  description = "Cloud SQL connection name in project:region:instance format. Empty disables the socket mount."
+  default     = ""
+}
+
 variable "sns_schedule_offset_hours" {
   type        = number
   description = "Hours after episode processing to schedule the first SNS promotion. Default 1 hour."
