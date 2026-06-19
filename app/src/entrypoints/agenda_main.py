@@ -110,7 +110,7 @@ def _save_topic_proposal(
     firestore_manager: FirestoreManager,
     podcast_id: str,
     result: AgendaResult,
-    news_candidates: list[NewsCandidate],
+    related_news: list[dict[str, object]],
 ) -> str:
     """Persist a topic proposal derived from agenda analysis."""
     return firestore_manager.create_topic_proposal(
@@ -118,7 +118,7 @@ def _save_topic_proposal(
         proposal_id=None,
         target_period_string=_build_target_period_string(result.metadata.generated_at),
         generated_at=result.metadata.generated_at,
-        related_news=_build_related_news_payload(news_candidates),
+        related_news=related_news,
         suggested_topics=_build_suggested_topics_payload(result),
     )
 
@@ -217,20 +217,15 @@ def send_weekly_agenda() -> None:
         if cfg.debug_json_path:
             _export_debug_json(result, cfg.debug_json_path)
 
-        if firestore_manager is not None and cfg.podcast_id is not None:
-            proposal_id = _save_topic_proposal(
-                firestore_manager=firestore_manager,
-                podcast_id=cfg.podcast_id,
-                result=result,
-                news_candidates=news_candidates,
-            )
-            logger.info("Saved topic proposal to Firestore: %s", proposal_id)
-
         ai_news_section: str | None = None
+        related_news = _build_related_news_payload(news_candidates)
         if cfg.gcp_project_id and result.recurring_themes:
             try:
                 researcher = AINewsResearcher(project_id=cfg.gcp_project_id)
-                ai_news_section = researcher.research(result.recurring_themes)
+                research_result = researcher.research_with_sources(result.recurring_themes)
+                ai_news_section = research_result.text
+                if research_result.related_news:
+                    related_news = list(research_result.related_news)
                 logger.info("AI news research succeeded (%d chars).", len(ai_news_section))
             except Exception:  # noqa: BLE001
                 logger.warning("AI news research failed. Falling back to RSS candidates.", exc_info=True)
@@ -240,6 +235,15 @@ def send_weekly_agenda() -> None:
                 bool(cfg.gcp_project_id),
                 len(result.recurring_themes),
             )
+
+        if firestore_manager is not None and cfg.podcast_id is not None:
+            proposal_id = _save_topic_proposal(
+                firestore_manager=firestore_manager,
+                podcast_id=cfg.podcast_id,
+                result=result,
+                related_news=related_news,
+            )
+            logger.info("Saved topic proposal to Firestore: %s", proposal_id)
 
         return format_agenda_message(
             result,

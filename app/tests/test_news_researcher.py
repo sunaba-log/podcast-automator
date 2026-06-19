@@ -203,6 +203,28 @@ class TestAINewsResearcher:
 
     @patch("services.news_researcher._resolve_credentials", return_value=None)
     @patch("services.news_researcher.genai.Client")
+    def test_research_with_sources_returns_grounding_payload(self, mock_client_cls, mock_creds):
+        """Grounding sourceをFirestore互換のrelated_newsへ変換すること."""
+        _ = mock_creds
+        mock_client_cls.return_value.models.generate_content.return_value = _make_mock_response_with_grounding(
+            "output"
+        )
+        researcher = AINewsResearcher(project_id="test-project")
+
+        result = researcher.research_with_sources([_make_topic()])
+
+        assert result.text == "output"
+        assert result.related_news == [
+            {
+                "title": "Test Source",
+                "url": "https://example.com/article",
+                "summary": "",
+                "source_reason": "Gemini Google Search grounding",
+            }
+        ]
+
+    @patch("services.news_researcher._resolve_credentials", return_value=None)
+    @patch("services.news_researcher.genai.Client")
     def test_research_uses_configured_model(self, mock_client_cls, mock_creds):
         """指定したモデル ID が generate_content に渡されること."""
         _ = mock_creds
