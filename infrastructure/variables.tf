@@ -47,6 +47,11 @@ variable "gcs_force_destroy" {
   default     = false
 }
 
+variable "gcs_cors_origins" {
+  type        = list(string)
+  description = "Browser origins allowed to upload MP3 files directly."
+}
+
 
 variable "discord_webhook_info_secret_name" {
   type        = string

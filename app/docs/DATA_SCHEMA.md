@@ -47,7 +47,7 @@ erDiagram
         TEXT description
         TEXT source_audio_path "GCS入力オブジェクトパス"
         TEXT audio_file_path "公開後のR2音声URL"
-        VARCHAR(20) status "uploaded/processing/completed/failed"
+        VARCHAR(20) status "upload_pending/uploaded/processing/completed/failed"
         INT duration_seconds "再生時間(秒)"
         TEXT processing_error
         TIMESTAMP published_at
@@ -96,7 +96,7 @@ erDiagram
 | description | TEXT | NULL | 説明文 |
 | source_audio_path | TEXT | NOT NULL | `podcasts/{podcast_id}/episodes/{episode_id}/source/{filename}` |
 | audio_file_path | TEXT | NULL | 処理完了後の公開音声URL |
-| status | VARCHAR(20) | NOT NULL | uploaded, processing, completed, failed |
+| status | VARCHAR(20) | NOT NULL | upload_pending, uploaded, processing, completed, failed |
 | duration_seconds | INT | NULL | 再生時間（秒） |
 | processing_error | TEXT | NULL | 処理失敗時のエラー概要 |
 | processing_started_at | TIMESTAMP | NULL | Automator処理開始日時 |
@@ -217,7 +217,7 @@ podcasts/{podcast_id}/topic_proposals/{proposal_id}
 1. podcast_ownerships.role は owner または editor を許容値とする
 2. episodes.duration_seconds は 0 以上
 3. episodes.published_at は episodes.created_at 以降
-4. episodes.status は uploaded, processing, completed, failed のいずれか
+4. episodes.status は upload_pending, uploaded, processing, completed, failed のいずれか
 
 ### PostgreSQL 推奨インデックス
 
@@ -268,8 +268,9 @@ podcasts/{podcast_id}/episodes/{episode_id}/source/{filename}.mp3
 処理状態は次の順でCloud SQLへ反映する。
 
 ```text
-uploaded -> processing -> completed
-                       \-> failed
+upload_pending -> uploaded -> processing -> completed
+          \---------------------------> failed
+                                \-----> failed
 ```
 
 ## 8. Open Questions

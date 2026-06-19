@@ -1,8 +1,13 @@
-environment                        = "prod"
-system                             = "podcast-automator"
-project_id                         = "sunabalog-prod"
-gcs_force_destroy                  = false
-gcs_retention_days                 = 30
+environment        = "prod"
+system             = "podcast-automator"
+project_id         = "sunabalog-prod"
+gcs_force_destroy  = false
+gcs_retention_days = 30
+gcs_cors_origins = [
+  "https://podcast-ui-kentakashimas-projects.vercel.app",
+  "https://podcast-ui-red.vercel.app",
+  "https://podcast-ui-git-main-kentakashimas-projects.vercel.app",
+]
 discord_webhook_info_secret_name   = "discord-webhook-url-prod-info"
 discord_webhook_error_secret_name  = "discord-webhook-url-prod-error"
 discord_webhook_agenda_secret_name = "discord-webhook-url-prod-agenda"
