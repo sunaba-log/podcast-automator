@@ -9,6 +9,7 @@ gcs_cors_origins = [
   "https://podcast-ui-kentakashimas-projects.vercel.app",
   "https://podcast-ui-red.vercel.app",
   "https://podcast-ui-git-main-kentakashimas-projects.vercel.app",
+  "https://podcast-ui-git-feature-16-episode-6d23e0-kentakashimas-projects.vercel.app",
 ]
 discord_webhook_info_secret_name   = "discord-webhook-url-dev-info"
 discord_webhook_error_secret_name  = "discord-webhook-url-dev-error"

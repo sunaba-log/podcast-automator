@@ -72,6 +72,16 @@ resource "google_cloud_run_v2_job" "agenda" {
           name  = "GOOGLE_CLOUD_PROJECT"
           value = var.project_id
         }
+
+        env {
+          name  = "PROJECT_ID"
+          value = var.project_id
+        }
+
+        env {
+          name  = "PODCAST_ID"
+          value = var.podcast_id
+        }
       }
     }
   }
