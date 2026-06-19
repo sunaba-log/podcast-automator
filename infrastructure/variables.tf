@@ -128,10 +128,22 @@ variable "database_url_secret_name" {
   description = "Secret Manager secret containing the PostgreSQL DATABASE_URL."
 }
 
-variable "cloud_sql_instance_connection_name" {
+variable "cloud_sql_tier" {
   type        = string
-  description = "Cloud SQL connection name in project:region:instance format. Empty disables the socket mount."
-  default     = ""
+  description = "Cloud SQL machine tier."
+  default     = "db-f1-micro"
+}
+
+variable "cloud_sql_database_name" {
+  type        = string
+  description = "PostgreSQL database name."
+  default     = "podcast"
+}
+
+variable "cloud_sql_database_user" {
+  type        = string
+  description = "PostgreSQL application user."
+  default     = "podcast_app"
 }
 
 variable "sns_schedule_offset_hours" {

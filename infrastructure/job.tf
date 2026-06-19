@@ -11,7 +11,7 @@ module "cloud_run_job" {
   docker_build_result_image_name = "podcast-automator-app:latest"
   job_name                       = "${var.system}-app-${var.environment}"
   service_account_email          = local.default_compute_service_account
-  cloud_sql_instances            = var.cloud_sql_instance_connection_name == "" ? [] : [var.cloud_sql_instance_connection_name]
+  cloud_sql_instances            = [google_sql_database_instance.podcast.connection_name]
 
   timeout            = "3600s"
   memory             = "8Gi"
@@ -45,5 +45,8 @@ module "cloud_run_job" {
     DATABASE_URL = var.database_url_secret_name
   }
 
-  depends_on = [google_project_service.required]
+  depends_on = [
+    google_project_service.required,
+    google_secret_manager_secret_version.database_url,
+  ]
 }
