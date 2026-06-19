@@ -7,6 +7,7 @@ resource "google_sql_database_instance" "podcast" {
   deletion_protection = var.environment == "prod"
 
   settings {
+    edition           = "ENTERPRISE"
     tier              = var.cloud_sql_tier
     availability_type = var.environment == "prod" ? "REGIONAL" : "ZONAL"
     disk_type         = "PD_SSD"
