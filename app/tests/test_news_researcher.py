@@ -206,9 +206,7 @@ class TestAINewsResearcher:
     def test_research_with_sources_returns_grounding_payload(self, mock_client_cls, mock_creds):
         """Grounding sourceをFirestore互換のrelated_newsへ変換すること."""
         _ = mock_creds
-        mock_client_cls.return_value.models.generate_content.return_value = _make_mock_response_with_grounding(
-            "output"
-        )
+        mock_client_cls.return_value.models.generate_content.return_value = _make_mock_response_with_grounding("output")
         researcher = AINewsResearcher(project_id="test-project")
 
         result = researcher.research_with_sources([_make_topic()])
