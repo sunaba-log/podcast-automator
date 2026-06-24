@@ -12,7 +12,7 @@ from .agenda import (
     SortPolicy,
     TopicMatch,
 )
-from .common import DiscordMessage, NewsItem, Summary, SnsPromotionContent, SnsPromotionsResponse
+from .common import DiscordMessage, NewsItem, SnsPromotionContent, SnsPromotionsResponse, Summary
 
 __all__ = [
     "ActionItem",
@@ -25,9 +25,9 @@ __all__ = [
     "NewsItem",
     "PromptType",
     "SeedTopic",
-    "SortPolicy",
     "SnsPromotionContent",
     "SnsPromotionsResponse",
+    "SortPolicy",
     "Summary",
     "TopicMatch",
 ]

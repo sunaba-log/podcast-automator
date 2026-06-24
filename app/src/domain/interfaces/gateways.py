@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from domain.models import AgendaResult, DiscordMessage, NewsItem, Summary, TopicMatch, SnsPromotionsResponse
+    from domain.models import AgendaResult, DiscordMessage, NewsItem, SnsPromotionsResponse, Summary, TopicMatch
 
 
 class TranscriptProvider(Protocol):

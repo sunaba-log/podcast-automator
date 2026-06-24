@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from unittest import mock
-import pytest
 
 from domain.interfaces import NotificationGateway
 from services.firestore_manager import FirestoreManager
@@ -115,7 +114,7 @@ def test_generate_weekly_agenda_saves_to_firestore() -> None:
     firestore_manager.create_topic_proposal.assert_called_once()
 
     # Verify the arguments passed to create_topic_proposal
-    args, kwargs = firestore_manager.create_topic_proposal.call_args
+    _, kwargs = firestore_manager.create_topic_proposal.call_args
     assert kwargs["podcast_id"] == "podcast-456"
     assert kwargs["proposal_id"] is None
     assert "2026年 第26週" in kwargs["target_period_string"]

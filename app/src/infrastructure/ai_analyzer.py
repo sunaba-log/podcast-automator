@@ -8,7 +8,7 @@ from google import genai
 from google.genai.types import GenerateContentConfig, Part
 
 from domain.interfaces import TranscriptProvider
-from domain.models import Summary, SnsPromotionsResponse
+from domain.models import SnsPromotionsResponse, Summary
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,7 @@ descriptionの出力例:
         prompt = f"""
 以下のポッドキャストのエピソード紹介文をもとに、SNS投稿文を {num_promotions} 種類作成してください。
 
-各投稿は、切り口の異なるパターン（例：告知重視、インサイト重視、パワーワード重視など）にしてください。
+各投稿は、切り口の異なるパターン(例: 告知重視、インサイト重視、パワーワード重視など)にしてください。
 
 制約事項:
 - 読み手が思わずクリックしたくなるような、簡潔で魅力的な言葉を選んでください。
