@@ -241,4 +241,3 @@ class TestGenerateSnsPromotions:
         config = call_args.kwargs["config"]
         assert config.temperature == 0.7
         assert config.response_json_schema == SnsPromotionsResponse.model_json_schema()
-

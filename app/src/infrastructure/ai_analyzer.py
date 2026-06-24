@@ -212,7 +212,6 @@ descriptionの出力例:
             raise
 
 
-
 def generate_transcript_with_gemini(gcs_uri: str) -> str | None:
     """Deprecated helper wrapper."""
     analyzer = AudioAnalyzer()

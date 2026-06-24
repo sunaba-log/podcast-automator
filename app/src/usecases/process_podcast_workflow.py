@@ -228,9 +228,7 @@ class ProcessPodcastWorkflow:
                 )
                 for i, promo in enumerate(sns_promotions.promotions):
                     promo_scheduled_time = (
-                        datetime.now(UTC)
-                        + timedelta(hours=request.sns_schedule_offset_hours)
-                        + timedelta(days=i)
+                        datetime.now(UTC) + timedelta(hours=request.sns_schedule_offset_hours) + timedelta(days=i)
                     ).isoformat()
                     self._firestore_manager.create_sns_promotion(
                         podcast_id=request.podcast_id,
