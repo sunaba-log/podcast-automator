@@ -3,7 +3,7 @@ from json import dumps
 from unittest.mock import MagicMock, patch
 
 import pytest
-from domain.models import Summary
+from domain.models import Summary, SnsPromotionsResponse
 from infrastructure.ai_analyzer import AudioAnalyzer
 
 
@@ -193,3 +193,52 @@ class TestSummarizeTranscript:
 
         call_args = mock_client.models.generate_content.call_args
         assert call_args.kwargs["model"] == "custom-model"
+
+
+class TestGenerateSnsPromotions:
+    """generate_sns_promotions メソッドのテスト."""
+
+    @patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch("infrastructure.ai_analyzer.genai.Client")
+    def test_generate_sns_promotions_success(self, mock_client_class):
+        """SNSプロモーション情報の生成成功."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.text = dumps(
+            {
+                "promotions": [
+                    {
+                        "message": "Promotion 1 message",
+                        "hashtags": ["#Tag1", "#Tag2"],
+                    },
+                    {
+                        "message": "Promotion 2 message",
+                        "hashtags": ["#Tag3"],
+                    },
+                ]
+            },
+            ensure_ascii=False,
+        )
+        mock_client.models.generate_content.return_value = mock_response
+
+        analyzer = AudioAnalyzer()
+        summary_description = "Episode description here..."
+        result = analyzer.generate_sns_promotions(summary_description, num_promotions=2)
+
+        assert isinstance(result, SnsPromotionsResponse)
+        assert len(result.promotions) == 2
+        assert result.promotions[0].message == "Promotion 1 message"
+        assert result.promotions[0].hashtags == ["#Tag1", "#Tag2"]
+        assert result.promotions[1].message == "Promotion 2 message"
+        assert result.promotions[1].hashtags == ["#Tag3"]
+
+        call_args = mock_client.models.generate_content.call_args
+        content = call_args.kwargs["contents"][0]
+        assert "SNS投稿文を 2 種類作成してください" in content
+        assert summary_description in content
+        config = call_args.kwargs["config"]
+        assert config.temperature == 0.7
+        assert config.response_json_schema == SnsPromotionsResponse.model_json_schema()
+

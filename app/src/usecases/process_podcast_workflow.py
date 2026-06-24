@@ -64,6 +64,7 @@ class ProcessPodcastWorkflowInput:
     r2_key_prefix: str
     ai_model_id: str
     r2_custom_domain: str
+    sns_promotion_count: int = 3
 
 
 class ProcessPodcastWorkflow:
@@ -220,17 +221,28 @@ class ProcessPodcastWorkflow:
                     episode_id=episode_id,
                     transcript=transcript,
                 )
-                self._firestore_manager.create_sns_promotion(
-                    podcast_id=request.podcast_id,
-                    episode_id=episode_id,
-                    promotion_id=None,
-                    generated_at=generated_at,
-                    scheduled_time=scheduled_time,
-                    episode_number=latest_episode_number,
-                    message=f"新しいエピソード: {summary.title}\n{public_url}",
-                    platform_urls={"apple": "", "spotify": "", "amazon": ""},
-                    hashtags=["#Podcast"],
+                sns_promotions = self._transcript_provider.generate_sns_promotions(
+                    summary_description=summary.description,
+                    num_promotions=request.sns_promotion_count,
+                    model_id=request.ai_model_id,
                 )
+                for i, promo in enumerate(sns_promotions.promotions):
+                    promo_scheduled_time = (
+                        datetime.now(UTC)
+                        + timedelta(hours=request.sns_schedule_offset_hours)
+                        + timedelta(days=i)
+                    ).isoformat()
+                    self._firestore_manager.create_sns_promotion(
+                        podcast_id=request.podcast_id,
+                        episode_id=episode_id,
+                        promotion_id=None,
+                        generated_at=generated_at,
+                        scheduled_time=promo_scheduled_time,
+                        episode_number=latest_episode_number,
+                        message=promo.message,
+                        platform_urls={"apple": "", "spotify": "", "amazon": ""},
+                        hashtags=promo.hashtags,
+                    )
 
             self._logger.info("\n## Notifying Discord (Success)... ##")
             self._notifier.send_discord_message(
