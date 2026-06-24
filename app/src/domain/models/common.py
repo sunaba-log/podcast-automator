@@ -18,6 +18,19 @@ class Summary(BaseModel):
     description: str = Field(..., description="Episode description")
 
 
+class SnsPromotionContent(BaseModel):
+    """SNS promotion message and hashtags."""
+
+    message: str = Field(..., description="SNS promotion message text.")
+    hashtags: list[str] = Field(..., description="Relevant hashtags.")
+
+
+class SnsPromotionsResponse(BaseModel):
+    """Multiple SNS promotion contents."""
+
+    promotions: list[SnsPromotionContent] = Field(..., description="List of generated promotions.")
+
+
 @dataclass
 class NewsItem:
     """News item fetched from feeds."""

@@ -47,6 +47,7 @@ class PodcastEnvConfig:
     discord_webhook_info_url: str | None
     ai_model_id: str
     r2_custom_domain: str
+    sns_promotion_count: int
 
 
 def _required_env(environ: Mapping[str, str], key: str) -> str:
@@ -77,6 +78,7 @@ def _load_podcast_env(environ: Mapping[str, str]) -> PodcastEnvConfig:
     discord_webhook_info_url = environ.get("DISCORD_WEBHOOK_INFO_URL")
     ai_model_id = environ.get("AI_MODEL_ID", "gemini-2.5-flash")
     r2_custom_domain = environ.get("R2_CUSTOM_DOMAIN", "podcast.sunabalog.com")
+    sns_promotion_count = int(environ.get("SNS_PROMOTION_COUNT", "3"))
 
     if secret_name is None and (r2_access_key_id is None or r2_secret_access_key is None):
         msg = "Either SECRET_NAME or both R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY must be provided."
@@ -98,6 +100,7 @@ def _load_podcast_env(environ: Mapping[str, str]) -> PodcastEnvConfig:
         discord_webhook_info_url=discord_webhook_info_url,
         ai_model_id=ai_model_id,
         r2_custom_domain=r2_custom_domain,
+        sns_promotion_count=sns_promotion_count,
     )
 
 
@@ -115,6 +118,7 @@ def _log_environment(config: PodcastEnvConfig) -> None:
     logger.info("R2_KEY_PREFIX: %s", config.r2_key_prefix)
     logger.info("AI_MODEL_ID: %s", config.ai_model_id)
     logger.info("R2_CUSTOM_DOMAIN: %s", config.r2_custom_domain)
+    logger.info("SNS_PROMOTION_COUNT: %s", config.sns_promotion_count)
     logger.info("###########################\n")
 
 
@@ -212,6 +216,7 @@ def process_podcast_workflow() -> None:
             r2_key_prefix=config.r2_key_prefix,
             ai_model_id=config.ai_model_id,
             r2_custom_domain=config.r2_custom_domain,
+            sns_promotion_count=config.sns_promotion_count,
         )
     )
 
