@@ -123,3 +123,34 @@ variable "sns_schedule_offset_hours" {
   description = "Hours after episode processing to schedule the first SNS promotion. Default 1 hour."
   default     = 1
 }
+
+variable "x_api_key_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for X API Key (Consumer Key)."
+  default     = "x-api-key"
+}
+
+variable "x_api_secret_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for X API Secret (Consumer Secret)."
+  default     = "x-api-secret"
+}
+
+variable "x_access_token_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for X Access Token."
+  default     = "x-access-token"
+}
+
+variable "x_access_token_secret_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for X Access Token Secret."
+  default     = "x-access-token-secret"
+}
+
+variable "promoter_scheduler_cron" {
+  type        = string
+  description = "Execution frequency of the promoter (cron format)."
+  default     = "0 * * * *"
+}
+

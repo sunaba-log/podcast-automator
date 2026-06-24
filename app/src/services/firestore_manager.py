@@ -148,6 +148,21 @@ class FirestoreManager:
         )
         return doc_ref.id
 
+    def get_pending_sns_promotions(self) -> list[dict[str, Any]]:
+        """Retrieve all pending SNS promotions across all episodes using a collection group query."""
+        query = self._client.collection_group("sns_promotions").where("status", "==", "pending")
+        results = []
+        for doc in query.stream():
+            data = doc.to_dict()
+            data["doc_id"] = doc.id
+            data["reference_path"] = doc.reference.path
+            results.append(data)
+        return results
+
+    def update_sns_promotion_status(self, doc_path: str, status: str) -> None:
+        """Update status of a specific SNS promotion document by its full reference path."""
+        self._client.document(doc_path).update({"status": status})
+
     def _podcast_collection(self, podcast_id: str) -> firestore.DocumentReference:
         return self._client.collection("podcasts").document(str(podcast_id))
 
