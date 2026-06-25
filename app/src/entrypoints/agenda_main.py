@@ -150,10 +150,10 @@ def send_weekly_agenda() -> None:
         logger=logger,
     )
 
-    def build_agenda_message() -> tuple[str, AgendaResult | None, list[NewsCandidate]]:
+    def build_agenda_message() -> tuple[str, AgendaResult | None, list[NewsCandidate], list[dict[str, object]] | None]:
         result, _warnings, news_candidates = _fetch_and_reconstruct(cfg)
         if result is None:
-            return AGENDA_MESSAGE, None, []
+            return AGENDA_MESSAGE, None, [], None
 
         episode_count = len(result.metadata.source_episode_numbers)
         logger.info(
@@ -165,10 +165,14 @@ def send_weekly_agenda() -> None:
             _export_debug_json(result, cfg.debug_json_path)
 
         ai_news_section: str | None = None
+        related_news: list[dict[str, object]] | None = None
         if cfg.gcp_project_id and result.recurring_themes:
             try:
                 researcher = AINewsResearcher(project_id=cfg.gcp_project_id)
-                ai_news_section = researcher.research(result.recurring_themes)
+                research_result = researcher.research_with_sources(result.recurring_themes)
+                ai_news_section = research_result.text
+                if research_result.related_news:
+                    related_news = list(research_result.related_news)
                 logger.info("AI news research succeeded (%d chars).", len(ai_news_section))
             except Exception:  # noqa: BLE001
                 logger.warning("AI news research failed. Falling back to RSS candidates.", exc_info=True)
@@ -184,7 +188,7 @@ def send_weekly_agenda() -> None:
             ai_news_section=ai_news_section,
             news_candidates=news_candidates if not ai_news_section else None,
         )
-        return formatted_msg, result, news_candidates
+        return formatted_msg, result, news_candidates, related_news
 
     success = usecase.run(
         message_builder=build_agenda_message,

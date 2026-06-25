@@ -20,8 +20,9 @@
 | Name | Required | Default | Description |
 | --- | --- | --- | --- |
 | PROJECT_ID | Yes | - | GCP project ID |
+| DATABASE_URL | Yes | - | Cloud SQL PostgreSQL connection URL |
 | GCS_BUCKET | Yes | - | Input audio bucket |
-| GCS_TRIGGER_OBJECT_NAME | Yes | - | Input audio object path |
+| GCS_TRIGGER_OBJECT_NAME | Yes | - | `podcasts/{podcast_id}/episodes/{episode_id}/source/{filename}.mp3` |
 | R2_BUCKET | Yes | - | Cloudflare R2 bucket |
 | SECRET_NAME | Conditional | - | Secret Manager secret name |
 | CLOUDFLARE_ACCESS_KEY_ID | Conditional | - | R2 access key (when SECRET_NAME is not used) |
@@ -36,6 +37,7 @@
 Conditional rule:
 
 - SECRET_NAME を指定しない場合、CLOUDFLARE_ACCESS_KEY_ID と CLOUDFLARE_SECRET_ACCESS_KEY の両方が必要です。
+- `podcast_id`と`episode_id`は`GCS_TRIGGER_OBJECT_NAME`から取得し、Cloud SQLとFirestoreの共通IDとして使用します。
 
 ### 2.2 Weekly Agenda Job
 

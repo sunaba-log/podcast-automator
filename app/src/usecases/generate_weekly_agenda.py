@@ -49,7 +49,12 @@ class GenerateWeeklyAgendaUsecase:
 
         message = fallback_message
         try:
-            message, result, news_candidates = message_builder()
+            builder_result = message_builder()
+            if len(builder_result) == 4:  # noqa: PLR2004
+                message, result, news_candidates, related_news = builder_result  # type: ignore[misc]
+            else:
+                message, result, news_candidates = builder_result  # type: ignore[misc]
+                related_news = None
 
             # Save generated topic proposal to Firestore if available
             if self._firestore_manager is not None and podcast_id is not None and result is not None:
@@ -57,6 +62,7 @@ class GenerateWeeklyAgendaUsecase:
                     podcast_id=podcast_id,
                     result=result,
                     news_candidates=news_candidates,
+                    related_news=related_news,
                 )
                 self._logger.info("Saved topic proposal to Firestore: %s", proposal_id)
         except Exception:  # noqa: BLE001
@@ -115,15 +121,21 @@ class GenerateWeeklyAgendaUsecase:
         podcast_id: str,
         result: AgendaResult,
         news_candidates: list[NewsCandidate],
+        related_news: list[dict[str, object]] | None = None,
     ) -> str:
         """Persist a topic proposal derived from agenda analysis."""
         if self._firestore_manager is None:
             raise RuntimeError("FirestoreManager is not initialized.")
+
+        news_payload = related_news
+        if news_payload is None:
+            news_payload = self._build_related_news_payload(news_candidates)  # type: ignore[assignment]
+
         return self._firestore_manager.create_topic_proposal(
             podcast_id=podcast_id,
             proposal_id=None,
             target_period_string=self._build_target_period_string(result.metadata.generated_at),
             generated_at=result.metadata.generated_at,
-            related_news=self._build_related_news_payload(news_candidates),
+            related_news=news_payload,  # type: ignore[arg-type]
             suggested_topics=self._build_suggested_topics_payload(result),
         )

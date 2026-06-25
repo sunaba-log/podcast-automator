@@ -6,6 +6,13 @@ resource "google_storage_bucket" "input" {
 
   force_destroy = var.gcs_force_destroy
 
+  cors {
+    origin          = var.gcs_cors_origins
+    method          = ["PUT"]
+    response_header = ["Content-Type"]
+    max_age_seconds = 3600
+  }
+
   dynamic "lifecycle_rule" {
     for_each = var.gcs_retention_days != null ? [1] : []
     content {

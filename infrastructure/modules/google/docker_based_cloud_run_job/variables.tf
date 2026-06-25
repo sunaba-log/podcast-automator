@@ -85,6 +85,18 @@ variable "environment_variables" {
   default     = {}
 }
 
+variable "secret_environment_variables" {
+  description = "Environment variable names mapped to Secret Manager secret names."
+  type        = map(string)
+  default     = {}
+}
+
+variable "cloud_sql_instances" {
+  description = "Cloud SQL instance connection names mounted at /cloudsql."
+  type        = list(string)
+  default     = []
+}
+
 variable "deletion_protection" {
   description = "Whether to enable deletion protection on the Cloud Run job"
   type        = bool

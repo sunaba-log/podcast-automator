@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from infrastructure.ai_analyzer import AudioAnalyzer
+from infrastructure.episode_repository import PostgresEpisodeRepository
 from infrastructure.notifier import Notifier
 from infrastructure.secret_manager import SecretManagerClient
 from infrastructure.storage import GCSClient, R2Client, get_audio_info
@@ -34,7 +35,7 @@ class PodcastEnvConfig:
     """Resolved environment variables for podcast workflow."""
 
     project_id: str
-    podcast_id: str
+    database_url: str
     sns_schedule_offset_hours: int
     gcs_bucket: str
     gcs_trigger_object_name: str
@@ -63,7 +64,7 @@ def _required_env(environ: Mapping[str, str], key: str) -> str:
 def _load_podcast_env(environ: Mapping[str, str]) -> PodcastEnvConfig:
     """Load and validate environment variables for podcast workflow."""
     project_id = _required_env(environ, "PROJECT_ID")
-    podcast_id = _required_env(environ, "PODCAST_ID")
+    database_url = _required_env(environ, "DATABASE_URL")
     gcs_bucket = _required_env(environ, "GCS_BUCKET")
     gcs_trigger_object_name = _required_env(environ, "GCS_TRIGGER_OBJECT_NAME")
     r2_bucket = _required_env(environ, "R2_BUCKET")
@@ -87,7 +88,7 @@ def _load_podcast_env(environ: Mapping[str, str]) -> PodcastEnvConfig:
 
     return PodcastEnvConfig(
         project_id=project_id,
-        podcast_id=podcast_id,
+        database_url=database_url,
         sns_schedule_offset_hours=sns_schedule_offset_hours,
         gcs_bucket=gcs_bucket,
         gcs_trigger_object_name=gcs_trigger_object_name,
@@ -108,7 +109,7 @@ def _log_environment(config: PodcastEnvConfig) -> None:
     """Log resolved environment settings."""
     logger.info("## Environment Variables ##")
     logger.info("PROJECT_ID: %s", config.project_id)
-    logger.info("PODCAST_ID: %s", config.podcast_id)
+    logger.info("DATABASE_URL configured: %s", bool(config.database_url))
     logger.info("SNS_SCHEDULE_OFFSET_HOURS: %s", config.sns_schedule_offset_hours)
     logger.info("SECRET_NAME: %s", config.secret_name)
     logger.info("GCS_BUCKET: %s", config.gcs_bucket)
@@ -185,6 +186,7 @@ def process_podcast_workflow() -> None:
     notifier_client = Notifier(discord_webhook_url=discord_webhook_url)
     audio_analyzer = AudioAnalyzer(project_id=config.project_id)
     firestore_manager = FirestoreManager(project_id=config.project_id)
+    episode_repository = PostgresEpisodeRepository(database_url=config.database_url)
     r2_client = R2Client(
         project_id=config.project_id,
         endpoint_url=config.r2_endpoint_url,
@@ -203,12 +205,12 @@ def process_podcast_workflow() -> None:
         audio_converter=AudioConverter.convert_to_mp3,
         audio_info_reader=get_audio_info,
         firestore_manager=firestore_manager,
+        episode_repository=episode_repository,
         logger=logger,
     )
     usecase.run(
         ProcessPodcastWorkflowInput(
             project_id=config.project_id,
-            podcast_id=config.podcast_id,
             sns_schedule_offset_hours=config.sns_schedule_offset_hours,
             gcs_bucket=config.gcs_bucket,
             gcs_trigger_object_name=config.gcs_trigger_object_name,

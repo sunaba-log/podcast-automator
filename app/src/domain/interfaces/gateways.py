@@ -77,6 +77,28 @@ class NotificationGateway(Protocol):
         """Send a message and return whether the message was accepted."""
 
 
+class EpisodeRepository(Protocol):
+    """Persist processing state for a Cloud SQL episode."""
+
+    def mark_processing(self, *, podcast_id: int, episode_id: int, source_audio_path: str) -> None:
+        """Mark an uploaded episode as processing."""
+
+    def mark_completed(
+        self,
+        *,
+        podcast_id: int,
+        episode_id: int,
+        title: str,
+        description: str,
+        audio_url: str,
+        duration_seconds: int | None,
+    ) -> None:
+        """Store published episode metadata and mark processing complete."""
+
+    def mark_failed(self, *, podcast_id: int, episode_id: int, error_message: str) -> None:
+        """Record a processing failure."""
+
+
 class DiscordTranscriptSource(Protocol):
     """Abstraction for loading Discord messages."""
 

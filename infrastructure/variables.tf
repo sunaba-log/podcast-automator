@@ -47,6 +47,11 @@ variable "gcs_force_destroy" {
   default     = false
 }
 
+variable "gcs_cors_origins" {
+  type        = list(string)
+  description = "Browser origins allowed to upload MP3 files directly."
+}
+
 
 variable "discord_webhook_info_secret_name" {
   type        = string
@@ -116,6 +121,29 @@ variable "discord_transcript_channel_id" {
 variable "podcast_id" {
   type        = string
   description = "Firestore podcast document ID. Injected as PODCAST_ID into the Cloud Run job."
+}
+
+variable "database_url_secret_name" {
+  type        = string
+  description = "Secret Manager secret containing the PostgreSQL DATABASE_URL."
+}
+
+variable "cloud_sql_tier" {
+  type        = string
+  description = "Cloud SQL machine tier."
+  default     = "db-f1-micro"
+}
+
+variable "cloud_sql_database_name" {
+  type        = string
+  description = "PostgreSQL database name."
+  default     = "podcast"
+}
+
+variable "cloud_sql_database_user" {
+  type        = string
+  description = "PostgreSQL application user."
+  default     = "podcast_app"
 }
 
 variable "sns_schedule_offset_hours" {

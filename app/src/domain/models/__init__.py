@@ -13,6 +13,8 @@ from .agenda import (
     TopicMatch,
 )
 from .common import DiscordMessage, NewsItem, SnsPromotionContent, SnsPromotionsResponse, Summary
+from .episode import EpisodeObjectReference
+from .sns_post import SnsPost
 
 __all__ = [
     "ActionItem",
@@ -21,6 +23,7 @@ __all__ = [
     "DiscordMessage",
     "DiscussionPrompt",
     "Episode",
+    "EpisodeObjectReference",
     "MentionEvidence",
     "NewsItem",
     "PromptType",
