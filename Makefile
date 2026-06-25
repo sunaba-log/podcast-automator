@@ -69,7 +69,7 @@ $(eval $(call SYSTEM_TARGET,clean,$(SYSTEMS_CLEAN)))
 $(eval $(call SYSTEM_TARGET,docker-build,$(SYSTEMS_DOCKER_BUILD)))
 
 terraform-docker-build:
-	DOCKER_BUILDKIT=1 docker build infrastructure -t terraform:latest
+	DOCKER_BUILDKIT=1 docker build --pull infrastructure -t terraform:latest
 
 terraform-setup: terraform-docker-build
 	$(TERRAFORM_BASE_COMMAND) init -backend-config=environments/${ENVIRONMENT}/backend.conf

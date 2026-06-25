@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from domain.models import Summary
+from domain.models import SnsPromotionContent, SnsPromotionsResponse, Summary
 from usecases.process_podcast_workflow import (
     ProcessPodcastWorkflow,
     ProcessPodcastWorkflowInput,
@@ -28,6 +28,22 @@ class _TranscriptProvider:
         model_id: str | None = None,
     ) -> Summary:
         return Summary(title="Generated title", description="Generated description")
+
+    def generate_sns_promotions(
+        self,
+        summary_description: str,
+        num_promotions: int = 3,
+        model_id: str | None = None,
+    ) -> SnsPromotionsResponse:
+        return SnsPromotionsResponse(
+            promotions=[
+                SnsPromotionContent(
+                    message=f"New Episode: {summary_description}",
+                    hashtags=["#podcast"],
+                )
+                for _ in range(num_promotions)
+            ]
+        )
 
 
 class _ObjectStorage:

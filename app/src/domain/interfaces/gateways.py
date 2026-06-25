@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from domain.models import AgendaResult, DiscordMessage, NewsItem, Summary, TopicMatch
+    from domain.models import AgendaResult, DiscordMessage, NewsItem, SnsPromotionsResponse, Summary, TopicMatch
 
 
 class TranscriptProvider(Protocol):
@@ -23,6 +23,14 @@ class TranscriptProvider(Protocol):
         model_id: str | None = None,
     ) -> Summary:
         """Generate a structured summary from transcript text."""
+
+    def generate_sns_promotions(
+        self,
+        summary_description: str,
+        num_promotions: int = 3,
+        model_id: str | None = None,
+    ) -> SnsPromotionsResponse:
+        """Generate multiple SNS promotions from episode summary description."""
 
 
 class ObjectStorage(Protocol):
