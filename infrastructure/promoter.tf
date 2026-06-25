@@ -8,6 +8,8 @@
 # - Cloud Scheduler から Job を起動
 
 resource "google_cloud_run_v2_job" "promoter" {
+  count = var.enable_promoter ? 1 : 0
+
   name                = "${var.system}-promoter-${var.environment}"
   location            = var.region
   deletion_protection = false
@@ -89,6 +91,8 @@ resource "google_cloud_run_v2_job" "promoter" {
 
 # Cloud Scheduler: 毎時間
 resource "google_cloud_scheduler_job" "promoter" {
+  count = var.enable_promoter ? 1 : 0
+
   name             = "${var.system}-promoter-${var.environment}"
   description      = "Scheduled auto post to X (every hour)"
   schedule         = var.promoter_scheduler_cron
@@ -98,7 +102,7 @@ resource "google_cloud_scheduler_job" "promoter" {
 
   http_target {
     http_method = "POST"
-    uri         = "https://run.googleapis.com/v2/projects/${var.project_id}/locations/${var.region}/jobs/${google_cloud_run_v2_job.promoter.name}:run"
+    uri         = "https://run.googleapis.com/v2/projects/${var.project_id}/locations/${var.region}/jobs/${google_cloud_run_v2_job.promoter[0].name}:run"
 
     oauth_token {
       service_account_email = local.default_compute_service_account
