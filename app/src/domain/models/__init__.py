@@ -28,7 +28,6 @@ __all__ = [
     "NewsItem",
     "PromptType",
     "SeedTopic",
-    "SnsPost",
     "SnsPromotionContent",
     "SnsPromotionsResponse",
     "SortPolicy",
