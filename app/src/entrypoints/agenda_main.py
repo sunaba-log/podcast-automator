@@ -7,7 +7,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -63,16 +63,6 @@ def _load_agenda_env() -> AgendaEnvConfig:
     )
 
 
-def _build_target_period_string(generated_at: str) -> str:
-    """Build a readable ISO-week period string."""
-    normalized = generated_at.removesuffix("Z") + ("+00:00" if generated_at.endswith("Z") else "")
-    generated_dt = datetime.fromisoformat(normalized)
-    iso_year, iso_week, _ = generated_dt.isocalendar()
-    monday = generated_dt.date() - timedelta(days=generated_dt.weekday())
-    sunday = monday + timedelta(days=6)
-    return f"{iso_year}年 第{iso_week}週 ({monday:%m/%d} - {sunday:%m/%d})"
-
-
 def _build_related_news_payload(news_candidates: list[NewsCandidate]) -> list[dict[str, object]]:
     """Convert news candidates into Firestore payloads."""
     return [
@@ -84,43 +74,6 @@ def _build_related_news_payload(news_candidates: list[NewsCandidate]) -> list[di
         }
         for candidate in news_candidates[:3]
     ]
-
-
-def _build_suggested_topics_payload(result: AgendaResult) -> list[dict[str, object]]:
-    """Convert agenda output into suggested topics."""
-    suggested_topics: list[dict[str, object]] = []
-    for theme in result.recurring_themes[:3]:
-        related_past_episodes = sorted({evidence.source_episode for evidence in theme.evidence})
-        suggested_points = [evidence.text for evidence in theme.evidence[:3]]
-        if not suggested_points and related_past_episodes:
-            suggested_points = [f"関連エピソード: {', '.join(map(str, related_past_episodes))}"]
-        suggested_topics.append(
-            {
-                "title": theme.display_name,
-                "description": f"{theme.display_name} について次回深掘りする。",
-                "suggested_points": suggested_points,
-                "related_past_episodes": related_past_episodes,
-            },
-        )
-    return suggested_topics
-
-
-def _save_topic_proposal(
-    *,
-    firestore_manager: FirestoreManager,
-    podcast_id: str,
-    result: AgendaResult,
-    related_news: list[dict[str, object]],
-) -> str:
-    """Persist a topic proposal derived from agenda analysis."""
-    return firestore_manager.create_topic_proposal(
-        podcast_id=podcast_id,
-        proposal_id=None,
-        target_period_string=_build_target_period_string(result.metadata.generated_at),
-        generated_at=result.metadata.generated_at,
-        related_news=related_news,
-        suggested_topics=_build_suggested_topics_payload(result),
-    )
 
 
 def _fetch_and_reconstruct(cfg: AgendaEnvConfig) -> tuple[AgendaResult | None, list[str], list[NewsCandidate]]:
@@ -200,13 +153,17 @@ def send_weekly_agenda() -> None:
     logger.info("DISCORD_WEBHOOK_AGENDA_URL configured: %s", bool(cfg.discord_webhook_agenda_url))
 
     notifier = Notifier(discord_webhook_url=cfg.discord_webhook_agenda_url)
-    usecase = GenerateWeeklyAgendaUsecase(notifier=notifier, logger=logger)
     firestore_manager = FirestoreManager(project_id=cfg.project_id) if cfg.project_id and cfg.podcast_id else None
+    usecase = GenerateWeeklyAgendaUsecase(
+        notifier=notifier,
+        firestore_manager=firestore_manager,
+        logger=logger,
+    )
 
-    def build_agenda_message() -> str:
+    def build_agenda_message() -> tuple[str, AgendaResult | None, list[dict[str, object]]]:
         result, _warnings, news_candidates = _fetch_and_reconstruct(cfg)
         if result is None:
-            return AGENDA_MESSAGE
+            return AGENDA_MESSAGE, None, []
 
         episode_count = len(result.metadata.source_episode_numbers)
         logger.info(
@@ -236,24 +193,17 @@ def send_weekly_agenda() -> None:
                 len(result.recurring_themes),
             )
 
-        if firestore_manager is not None and cfg.podcast_id is not None:
-            proposal_id = _save_topic_proposal(
-                firestore_manager=firestore_manager,
-                podcast_id=cfg.podcast_id,
-                result=result,
-                related_news=related_news,
-            )
-            logger.info("Saved topic proposal to Firestore: %s", proposal_id)
-
-        return format_agenda_message(
+        formatted_msg = format_agenda_message(
             result,
             ai_news_section=ai_news_section,
             news_candidates=news_candidates if not ai_news_section else None,
         )
+        return formatted_msg, result, related_news
 
     success = usecase.run(
         message_builder=build_agenda_message,
         fallback_message=AGENDA_MESSAGE,
+        podcast_id=cfg.podcast_id,
         username="Podcast Scheduler",
     )
     if not success:
