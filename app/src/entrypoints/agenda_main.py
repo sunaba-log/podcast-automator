@@ -63,17 +63,7 @@ def _load_agenda_env() -> AgendaEnvConfig:
     )
 
 
-def _build_related_news_payload(news_candidates: list[NewsCandidate]) -> list[dict[str, object]]:
-    """Convert news candidates into Firestore payloads."""
-    return [
-        {
-            "title": candidate.news_item.title,
-            "url": candidate.news_item.url,
-            "summary": candidate.news_item.summary or "",
-            "source_reason": f"{candidate.topic_match.display_name} との関連度 {candidate.score:.2f}",
-        }
-        for candidate in news_candidates[:3]
-    ]
+# (relocated Firestore saving helper methods to GenerateWeeklyAgendaUsecase)
 
 
 def _fetch_and_reconstruct(cfg: AgendaEnvConfig) -> tuple[AgendaResult | None, list[str], list[NewsCandidate]]:
@@ -160,10 +150,10 @@ def send_weekly_agenda() -> None:
         logger=logger,
     )
 
-    def build_agenda_message() -> tuple[str, AgendaResult | None, list[dict[str, object]]]:
+    def build_agenda_message() -> tuple[str, AgendaResult | None, list[NewsCandidate], list[dict[str, object]] | None]:
         result, _warnings, news_candidates = _fetch_and_reconstruct(cfg)
         if result is None:
-            return AGENDA_MESSAGE, None, []
+            return AGENDA_MESSAGE, None, [], None
 
         episode_count = len(result.metadata.source_episode_numbers)
         logger.info(
@@ -175,7 +165,7 @@ def send_weekly_agenda() -> None:
             _export_debug_json(result, cfg.debug_json_path)
 
         ai_news_section: str | None = None
-        related_news = _build_related_news_payload(news_candidates)
+        related_news: list[dict[str, object]] | None = None
         if cfg.gcp_project_id and result.recurring_themes:
             try:
                 researcher = AINewsResearcher(project_id=cfg.gcp_project_id)
@@ -198,7 +188,7 @@ def send_weekly_agenda() -> None:
             ai_news_section=ai_news_section,
             news_candidates=news_candidates if not ai_news_section else None,
         )
-        return formatted_msg, result, related_news
+        return formatted_msg, result, news_candidates, related_news
 
     success = usecase.run(
         message_builder=build_agenda_message,

@@ -10,13 +10,19 @@ if TYPE_CHECKING:
 
     from domain.interfaces import NotificationGateway
     from services.firestore_manager import FirestoreManager
+    from services.news_relevance import NewsCandidate
     from services.transcript_analyzer import AgendaResult
 
 
 class AgendaMessageBuilder(Protocol):
     """Builds a weekly agenda notification message."""
 
-    def __call__(self) -> tuple[str, AgendaResult | None, list[dict[str, object]]]:
+    def __call__(
+        self,
+    ) -> (
+        tuple[str, AgendaResult | None, list[NewsCandidate]]
+        | tuple[str, AgendaResult | None, list[NewsCandidate], list[dict[str, object]] | None]
+    ):
         """Return a message body and components for weekly notification."""
 
 
@@ -48,13 +54,19 @@ class GenerateWeeklyAgendaUsecase:
 
         message = fallback_message
         try:
-            message, result, related_news = message_builder()
+            builder_result = message_builder()
+            if len(builder_result) == 4:  # noqa: PLR2004
+                message, result, news_candidates, related_news = builder_result  # type: ignore[misc]
+            else:
+                message, result, news_candidates = builder_result  # type: ignore[misc]
+                related_news = None
 
             # Save generated topic proposal to Firestore if available
             if self._firestore_manager is not None and podcast_id is not None and result is not None:
                 proposal_id = self._save_topic_proposal(
                     podcast_id=podcast_id,
                     result=result,
+                    news_candidates=news_candidates,
                     related_news=related_news,
                 )
                 self._logger.info("Saved topic proposal to Firestore: %s", proposal_id)
@@ -77,6 +89,18 @@ class GenerateWeeklyAgendaUsecase:
         monday = generated_dt.date() - timedelta(days=generated_dt.weekday())
         sunday = monday + timedelta(days=6)
         return f"{iso_year}年 第{iso_week}週 ({monday:%m/%d} - {sunday:%m/%d})"
+
+    def _build_related_news_payload(self, news_candidates: list[NewsCandidate]) -> list[dict[str, object]]:
+        """Convert news candidates into Firestore payloads."""
+        return [
+            {
+                "title": candidate.news_item.title,
+                "url": candidate.news_item.url,
+                "summary": candidate.news_item.summary or "",
+                "source_reason": f"{candidate.topic_match.display_name} との関連度 {candidate.score:.2f}",
+            }
+            for candidate in news_candidates[:3]
+        ]
 
     def _build_suggested_topics_payload(self, result: AgendaResult) -> list[dict[str, object]]:
         """Convert agenda output into suggested topics."""
@@ -101,16 +125,22 @@ class GenerateWeeklyAgendaUsecase:
         *,
         podcast_id: str,
         result: AgendaResult,
-        related_news: list[dict[str, object]],
+        news_candidates: list[NewsCandidate],
+        related_news: list[dict[str, object]] | None = None,
     ) -> str:
         """Persist a topic proposal derived from agenda analysis."""
         if self._firestore_manager is None:
             raise RuntimeError("FirestoreManager is not initialized.")
+
+        news_payload = related_news
+        if news_payload is None:
+            news_payload = self._build_related_news_payload(news_candidates)  # type: ignore[assignment]
+
         return self._firestore_manager.create_topic_proposal(
             podcast_id=podcast_id,
             proposal_id=None,
             target_period_string=self._build_target_period_string(result.metadata.generated_at),
             generated_at=result.metadata.generated_at,
-            related_news=related_news[:3],
+            related_news=news_payload[:3],
             suggested_topics=self._build_suggested_topics_payload(result),
         )

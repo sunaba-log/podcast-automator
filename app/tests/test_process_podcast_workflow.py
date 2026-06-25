@@ -39,7 +39,7 @@ class _TranscriptProvider:
             promotions=[
                 SnsPromotionContent(message=f"Promotion {index}", hashtags=[f"#Tag{index}"])
                 for index in range(1, num_promotions + 1)
-            ],
+            ]
         )
 
 

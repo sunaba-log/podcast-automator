@@ -95,7 +95,7 @@ def test_generate_weekly_agenda_saves_to_firestore() -> None:
 
     # Act
     success = usecase.run(
-        message_builder=lambda: ("Agenda Message", result, related_news),
+        message_builder=lambda: ("Agenda Message", result, [], related_news),
         fallback_message="Fallback",
         podcast_id="podcast-456",
     )
