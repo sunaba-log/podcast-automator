@@ -13,7 +13,6 @@ from .agenda import (
     TopicMatch,
 )
 from .common import DiscordMessage, NewsItem, SnsPromotionContent, SnsPromotionsResponse, Summary
-from .sns_post import SnsPost
 
 __all__ = [
     "ActionItem",
@@ -26,7 +25,6 @@ __all__ = [
     "NewsItem",
     "PromptType",
     "SeedTopic",
-    "SnsPost",
     "SnsPromotionContent",
     "SnsPromotionsResponse",
     "SortPolicy",
