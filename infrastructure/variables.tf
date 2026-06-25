@@ -152,6 +152,18 @@ variable "sns_schedule_offset_hours" {
   default     = 1
 }
 
+variable "manage_firestore_database" {
+  type        = bool
+  description = "Whether this Terraform stack creates and manages the default Firestore database."
+  default     = false
+}
+
+variable "enable_promoter" {
+  type        = bool
+  description = "Whether to deploy the X auto-posting Cloud Run Job and Scheduler. Requires X API secrets to exist."
+  default     = false
+}
+
 variable "x_api_key_secret_name" {
   type        = string
   description = "Secret Manager secret name for X API Key (Consumer Key)."
@@ -181,4 +193,3 @@ variable "promoter_scheduler_cron" {
   description = "Execution frequency of the promoter (cron format)."
   default     = "0 * * * *"
 }
-
