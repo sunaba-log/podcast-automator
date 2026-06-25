@@ -37,11 +37,8 @@ class _TranscriptProvider:
     ) -> SnsPromotionsResponse:
         return SnsPromotionsResponse(
             promotions=[
-                SnsPromotionContent(
-                    message=f"New Episode: {summary_description}",
-                    hashtags=["#podcast"],
-                )
-                for _ in range(num_promotions)
+                SnsPromotionContent(message=f"Promotion {index}", hashtags=[f"#Tag{index}"])
+                for index in range(1, num_promotions + 1)
             ]
         )
 
@@ -108,7 +105,7 @@ class _FirestoreManager:
     def __init__(self) -> None:
         self.episode_content: dict[str, object] | None = None
         self.transcript: dict[str, object] | None = None
-        self.promotion: dict[str, object] | None = None
+        self.promotions: list[dict[str, object]] = []
 
     def save_episode_content(self, **values: object) -> str:
         self.episode_content = values
@@ -119,8 +116,8 @@ class _FirestoreManager:
         return ["chunk_0001"]
 
     def create_sns_promotion(self, **values: object) -> str:
-        self.promotion = values
-        return "promotion-1"
+        self.promotions.append(values)
+        return f"promotion-{len(self.promotions)}"
 
 
 def _request(object_path: str = "podcasts/1/episodes/42/source/recording.mp3") -> ProcessPodcastWorkflowInput:
@@ -133,6 +130,7 @@ def _request(object_path: str = "podcasts/1/episodes/42/source/recording.mp3") -
         r2_key_prefix="dev",
         ai_model_id="model",
         r2_custom_domain="podcast.example.com",
+        sns_promotion_count=2,
     )
 
 
@@ -177,8 +175,12 @@ def test_workflow_uses_object_path_ids_for_cloud_sql_and_firestore() -> None:
     assert firestore.episode_content["episode_id"] == "42"
     assert firestore.transcript is not None
     assert firestore.transcript["episode_id"] == "42"
-    assert firestore.promotion is not None
-    assert firestore.promotion["episode_id"] == "42"
+    assert len(firestore.promotions) == 2
+    assert firestore.promotions[0]["episode_id"] == "42"
+    assert firestore.promotions[0]["podcast_id"] == "1"
+    assert firestore.promotions[0]["message"] == "Promotion 1"
+    assert firestore.promotions[1]["episode_id"] == "42"
+    assert firestore.promotions[1]["message"] == "Promotion 2"
 
 
 def test_workflow_marks_episode_failed_and_reraises() -> None:

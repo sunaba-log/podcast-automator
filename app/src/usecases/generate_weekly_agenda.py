@@ -17,7 +17,12 @@ if TYPE_CHECKING:
 class AgendaMessageBuilder(Protocol):
     """Builds a weekly agenda notification message."""
 
-    def __call__(self) -> tuple[str, AgendaResult | None, list[NewsCandidate]]:
+    def __call__(
+        self,
+    ) -> (
+        tuple[str, AgendaResult | None, list[NewsCandidate]]
+        | tuple[str, AgendaResult | None, list[NewsCandidate], list[dict[str, object]] | None]
+    ):
         """Return a message body and components for weekly notification."""
 
 
@@ -136,6 +141,6 @@ class GenerateWeeklyAgendaUsecase:
             proposal_id=None,
             target_period_string=self._build_target_period_string(result.metadata.generated_at),
             generated_at=result.metadata.generated_at,
-            related_news=news_payload,  # type: ignore[arg-type]
+            related_news=news_payload[:3],
             suggested_topics=self._build_suggested_topics_payload(result),
         )

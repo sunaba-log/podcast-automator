@@ -181,4 +181,3 @@ variable "promoter_scheduler_cron" {
   description = "Execution frequency of the promoter (cron format)."
   default     = "0 * * * *"
 }
-

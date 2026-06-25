@@ -36,20 +36,6 @@ class FakeAgendaResult:
         self.schema_version = "1.0"
 
 
-class FakeNewsItem:
-    def __init__(self, title: str, url: str, summary: str | None) -> None:
-        self.title = title
-        self.url = url
-        self.summary = summary
-
-
-class FakeNewsCandidate:
-    def __init__(self, news_item: FakeNewsItem, topic_match: FakeTopicMatch, score: float) -> None:
-        self.news_item = news_item
-        self.topic_match = topic_match
-        self.score = score
-
-
 def test_generate_weekly_agenda_no_firestore() -> None:
     # Arrange
     notifier = mock.Mock(spec=NotificationGateway)
@@ -98,12 +84,18 @@ def test_generate_weekly_agenda_saves_to_firestore() -> None:
         generated_at="2026-06-25T00:00:00Z",
         recurring_themes=[theme1],
     )
-    news_item = FakeNewsItem(title="News Title", url="https://example.com/news", summary="Summary text")
-    news_candidate = FakeNewsCandidate(news_item=news_item, topic_match=theme1, score=0.9)
+    related_news = [
+        {
+            "title": "News Title",
+            "url": "https://example.com/news",
+            "summary": "Summary text",
+            "source_reason": "AI Theme との関連度 0.90",
+        }
+    ]
 
     # Act
     success = usecase.run(
-        message_builder=lambda: ("Agenda Message", result, [news_candidate]),
+        message_builder=lambda: ("Agenda Message", result, [], related_news),
         fallback_message="Fallback",
         podcast_id="podcast-456",
     )

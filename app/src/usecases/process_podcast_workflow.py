@@ -190,7 +190,6 @@ class ProcessPodcastWorkflow:
 
             if self._firestore_manager is not None:
                 generated_at = datetime.now(UTC).isoformat()
-                scheduled_time = (datetime.now(UTC) + timedelta(hours=request.sns_schedule_offset_hours)).isoformat()
                 transcript_summary = summary.description
                 ai_generated_meta = {
                     "title": summary.title,
