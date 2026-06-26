@@ -18,3 +18,5 @@ r2_subdomain                       = "podcast"
 podcast_id                         = "1"
 database_url_secret_name           = "podcast-database-url-prod"
 cloud_sql_tier                     = "db-custom-1-3840"
+enable_promoter                    = true
+manage_firestore_database          = true
