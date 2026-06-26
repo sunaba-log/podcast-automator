@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from infrastructure.ai_analyzer import AudioAnalyzer
+from infrastructure.episode_repository import PostgresEpisodeRepository
 from infrastructure.notifier import Notifier
 from infrastructure.secret_manager import SecretManagerClient
 from infrastructure.storage import GCSClient, R2Client, get_audio_info
@@ -34,7 +35,7 @@ class PodcastEnvConfig:
     """Resolved environment variables for podcast workflow."""
 
     project_id: str
-    podcast_id: str
+    database_url: str
     sns_schedule_offset_hours: int
     gcs_bucket: str
     gcs_trigger_object_name: str
@@ -47,6 +48,7 @@ class PodcastEnvConfig:
     discord_webhook_info_url: str | None
     ai_model_id: str
     r2_custom_domain: str
+    sns_promotion_count: int
 
 
 def _required_env(environ: Mapping[str, str], key: str) -> str:
@@ -62,7 +64,7 @@ def _required_env(environ: Mapping[str, str], key: str) -> str:
 def _load_podcast_env(environ: Mapping[str, str]) -> PodcastEnvConfig:
     """Load and validate environment variables for podcast workflow."""
     project_id = _required_env(environ, "PROJECT_ID")
-    podcast_id = _required_env(environ, "PODCAST_ID")
+    database_url = _required_env(environ, "DATABASE_URL")
     gcs_bucket = _required_env(environ, "GCS_BUCKET")
     gcs_trigger_object_name = _required_env(environ, "GCS_TRIGGER_OBJECT_NAME")
     r2_bucket = _required_env(environ, "R2_BUCKET")
@@ -77,6 +79,7 @@ def _load_podcast_env(environ: Mapping[str, str]) -> PodcastEnvConfig:
     discord_webhook_info_url = environ.get("DISCORD_WEBHOOK_INFO_URL")
     ai_model_id = environ.get("AI_MODEL_ID", "gemini-2.5-flash")
     r2_custom_domain = environ.get("R2_CUSTOM_DOMAIN", "podcast.sunabalog.com")
+    sns_promotion_count = int(environ.get("SNS_PROMOTION_COUNT", "3"))
 
     if secret_name is None and (r2_access_key_id is None or r2_secret_access_key is None):
         msg = "Either SECRET_NAME or both R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY must be provided."
@@ -85,7 +88,7 @@ def _load_podcast_env(environ: Mapping[str, str]) -> PodcastEnvConfig:
 
     return PodcastEnvConfig(
         project_id=project_id,
-        podcast_id=podcast_id,
+        database_url=database_url,
         sns_schedule_offset_hours=sns_schedule_offset_hours,
         gcs_bucket=gcs_bucket,
         gcs_trigger_object_name=gcs_trigger_object_name,
@@ -98,6 +101,7 @@ def _load_podcast_env(environ: Mapping[str, str]) -> PodcastEnvConfig:
         discord_webhook_info_url=discord_webhook_info_url,
         ai_model_id=ai_model_id,
         r2_custom_domain=r2_custom_domain,
+        sns_promotion_count=sns_promotion_count,
     )
 
 
@@ -105,7 +109,7 @@ def _log_environment(config: PodcastEnvConfig) -> None:
     """Log resolved environment settings."""
     logger.info("## Environment Variables ##")
     logger.info("PROJECT_ID: %s", config.project_id)
-    logger.info("PODCAST_ID: %s", config.podcast_id)
+    logger.info("DATABASE_URL configured: %s", bool(config.database_url))
     logger.info("SNS_SCHEDULE_OFFSET_HOURS: %s", config.sns_schedule_offset_hours)
     logger.info("SECRET_NAME: %s", config.secret_name)
     logger.info("GCS_BUCKET: %s", config.gcs_bucket)
@@ -115,6 +119,7 @@ def _log_environment(config: PodcastEnvConfig) -> None:
     logger.info("R2_KEY_PREFIX: %s", config.r2_key_prefix)
     logger.info("AI_MODEL_ID: %s", config.ai_model_id)
     logger.info("R2_CUSTOM_DOMAIN: %s", config.r2_custom_domain)
+    logger.info("SNS_PROMOTION_COUNT: %s", config.sns_promotion_count)
     logger.info("###########################\n")
 
 
@@ -181,6 +186,7 @@ def process_podcast_workflow() -> None:
     notifier_client = Notifier(discord_webhook_url=discord_webhook_url)
     audio_analyzer = AudioAnalyzer(project_id=config.project_id)
     firestore_manager = FirestoreManager(project_id=config.project_id)
+    episode_repository = PostgresEpisodeRepository(database_url=config.database_url)
     r2_client = R2Client(
         project_id=config.project_id,
         endpoint_url=config.r2_endpoint_url,
@@ -199,12 +205,12 @@ def process_podcast_workflow() -> None:
         audio_converter=AudioConverter.convert_to_mp3,
         audio_info_reader=get_audio_info,
         firestore_manager=firestore_manager,
+        episode_repository=episode_repository,
         logger=logger,
     )
     usecase.run(
         ProcessPodcastWorkflowInput(
             project_id=config.project_id,
-            podcast_id=config.podcast_id,
             sns_schedule_offset_hours=config.sns_schedule_offset_hours,
             gcs_bucket=config.gcs_bucket,
             gcs_trigger_object_name=config.gcs_trigger_object_name,
@@ -212,6 +218,7 @@ def process_podcast_workflow() -> None:
             r2_key_prefix=config.r2_key_prefix,
             ai_model_id=config.ai_model_id,
             r2_custom_domain=config.r2_custom_domain,
+            sns_promotion_count=config.sns_promotion_count,
         )
     )
 

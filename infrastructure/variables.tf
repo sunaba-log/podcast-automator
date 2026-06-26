@@ -47,6 +47,11 @@ variable "gcs_force_destroy" {
   default     = false
 }
 
+variable "gcs_cors_origins" {
+  type        = list(string)
+  description = "Browser origins allowed to upload MP3 files directly."
+}
+
 
 variable "discord_webhook_info_secret_name" {
   type        = string
@@ -118,8 +123,73 @@ variable "podcast_id" {
   description = "Firestore podcast document ID. Injected as PODCAST_ID into the Cloud Run job."
 }
 
+variable "database_url_secret_name" {
+  type        = string
+  description = "Secret Manager secret containing the PostgreSQL DATABASE_URL."
+}
+
+variable "cloud_sql_tier" {
+  type        = string
+  description = "Cloud SQL machine tier."
+  default     = "db-f1-micro"
+}
+
+variable "cloud_sql_database_name" {
+  type        = string
+  description = "PostgreSQL database name."
+  default     = "podcast"
+}
+
+variable "cloud_sql_database_user" {
+  type        = string
+  description = "PostgreSQL application user."
+  default     = "podcast_app"
+}
+
 variable "sns_schedule_offset_hours" {
   type        = number
   description = "Hours after episode processing to schedule the first SNS promotion. Default 1 hour."
   default     = 1
+}
+
+variable "manage_firestore_database" {
+  type        = bool
+  description = "Whether this Terraform stack creates and manages the default Firestore database."
+  default     = false
+}
+
+variable "enable_promoter" {
+  type        = bool
+  description = "Whether to deploy the X auto-posting Cloud Run Job and Scheduler. Requires X API secrets to exist."
+  default     = false
+}
+
+variable "x_api_key_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for X API Key (Consumer Key)."
+  default     = "x-api-key"
+}
+
+variable "x_api_secret_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for X API Secret (Consumer Secret)."
+  default     = "x-api-secret"
+}
+
+variable "x_access_token_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for X Access Token."
+  default     = "x-access-token"
+}
+
+variable "x_access_token_secret_secret_name" {
+  type        = string
+  description = "Secret Manager secret name for X Access Token Secret."
+  default     = "x-access-token-secret"
+}
+
+variable "promoter_scheduler_cron" {
+  type        = string
+  description = "Execution frequency of the promoter (cron format)."
+  default     = "0 * * * *"
 }

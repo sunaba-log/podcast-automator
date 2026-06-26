@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from domain.models import AgendaResult, DiscordMessage, NewsItem, Summary, TopicMatch
+    from domain.models import AgendaResult, DiscordMessage, NewsItem, SnsPromotionsResponse, Summary, TopicMatch
 
 
 class TranscriptProvider(Protocol):
@@ -23,6 +23,14 @@ class TranscriptProvider(Protocol):
         model_id: str | None = None,
     ) -> Summary:
         """Generate a structured summary from transcript text."""
+
+    def generate_sns_promotions(
+        self,
+        summary_description: str,
+        num_promotions: int = 3,
+        model_id: str | None = None,
+    ) -> SnsPromotionsResponse:
+        """Generate multiple SNS promotions from episode summary description."""
 
 
 class ObjectStorage(Protocol):
@@ -67,6 +75,28 @@ class NotificationGateway(Protocol):
 
     def send_discord_message(self, message: str) -> bool:
         """Send a message and return whether the message was accepted."""
+
+
+class EpisodeRepository(Protocol):
+    """Persist processing state for a Cloud SQL episode."""
+
+    def mark_processing(self, *, podcast_id: int, episode_id: int, source_audio_path: str) -> None:
+        """Mark an uploaded episode as processing."""
+
+    def mark_completed(
+        self,
+        *,
+        podcast_id: int,
+        episode_id: int,
+        title: str,
+        description: str,
+        audio_url: str,
+        duration_seconds: int | None,
+    ) -> None:
+        """Store published episode metadata and mark processing complete."""
+
+    def mark_failed(self, *, podcast_id: int, episode_id: int, error_message: str) -> None:
+        """Record a processing failure."""
 
 
 class DiscordTranscriptSource(Protocol):

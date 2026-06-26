@@ -2,6 +2,7 @@ locals {
   required_services = [
     "artifactregistry.googleapis.com",
     "cloudscheduler.googleapis.com",
+    "sqladmin.googleapis.com",
     "compute.googleapis.com",
     "eventarc.googleapis.com",
     "iam.googleapis.com",
@@ -13,6 +14,7 @@ locals {
     "aiplatform.googleapis.com",
     "workflows.googleapis.com",
     "firestore.googleapis.com",
+    "identitytoolkit.googleapis.com",
   ]
 
   default_compute_service_account = "${data.google_project.project.number}-compute@developer.gserviceaccount.com"

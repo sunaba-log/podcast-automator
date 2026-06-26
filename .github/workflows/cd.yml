@@ -8,6 +8,14 @@ on:
         required: true
         default: "develop"
         type: string
+      deploy_mode:
+        description: "Terraform operation"
+        required: true
+        default: "plan"
+        type: choice
+        options:
+          - plan
+          - apply
   push:
     branches:
       - main
@@ -74,6 +82,12 @@ jobs:
 
       - name: Deploy
         run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.deploy_mode }}" == "plan" ]]; then
+            echo "Planning ${ENVIRONMENT}..."
+            make terraform-base ENVIRONMENT="${ENVIRONMENT}" COMMAND="plan -no-color"
+            exit 0
+          fi
+
           if [[ $TARGET_REF == "refs/heads/main" ]]; then
             echo "Deploying to production..."
             make terraform-deploy-prod DEPLOY_COMMAND_EXTENSION="-auto-approve"

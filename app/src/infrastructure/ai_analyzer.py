@@ -8,7 +8,7 @@ from google import genai
 from google.genai.types import GenerateContentConfig, Part
 
 from domain.interfaces import TranscriptProvider
-from domain.models import Summary
+from domain.models import SnsPromotionsResponse, Summary
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +149,66 @@ descriptionの出力例:
                         "Recovered JSON is still incomplete. Try increasing max_output_tokens or simplifying the prompt."
                     ) from err
                 return Summary.model_validate_json(candidate)
+            raise
+
+    def generate_sns_promotions(
+        self,
+        summary_description: str,
+        num_promotions: int = 3,
+        model_id: str | None = None,
+    ) -> SnsPromotionsResponse:
+        """Generate multiple SNS promotions from episode summary description using Gemini."""
+        model_id = model_id or self.DEFAULT_MODEL_ID
+
+        prompt = f"""
+以下のポッドキャストのエピソード紹介文をもとに、SNS投稿文を {num_promotions} 種類作成してください。
+
+各投稿は、切り口の異なるパターン(例: 告知重視、インサイト重視、パワーワード重視など)にしてください。
+
+制約事項:
+- 読み手が思わずクリックしたくなるような、簡潔で魅力的な言葉を選んでください。
+- ハッシュタグは文脈に合わせて3個程度選定してください。
+- ややフレンドリーな口調で。
+
+出力は必ず **JSONのみ** とし、次のスキーマに厳密に従ってください。
+スキーマ:
+{{
+    "promotions": [
+        {{
+            "message": "SNS投稿文の本文",
+            "hashtags": ["#タグ1", "#タグ2", "#タグ3"]
+        }},
+        ...
+    ]
+}}
+
+--- 以下がエピソード紹介文です ---
+{summary_description}
+"""
+
+        response = self.client.models.generate_content(
+            model=model_id,
+            contents=[prompt],
+            config=GenerateContentConfig(
+                temperature=0.7,
+                max_output_tokens=4000,
+                response_mime_type="application/json",
+                response_json_schema=SnsPromotionsResponse.model_json_schema(),
+            ),
+        )
+        if not response.text:
+            raise ValueError("No response received from the model for SNS promotion.")
+
+        text = response.text.strip()
+        try:
+            return SnsPromotionsResponse.model_validate_json(text)
+        except Exception as err:
+            logger.warning("SNS Promotion JSON validation failed. response.text=%s", text)
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                candidate = text[start : end + 1]
+                return SnsPromotionsResponse.model_validate_json(candidate)
             raise
 
 

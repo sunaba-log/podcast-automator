@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import google.auth
@@ -29,6 +30,14 @@ logger = logging.getLogger(__name__)
 _DEFAULT_MODEL: str = "gemini-2.5-flash"
 _DEFAULT_LOCATION: str = "us-central1"
 _DEFAULT_MAX_ITEMS: int = 3
+
+
+@dataclass(frozen=True)
+class AINewsResearchResult:
+    """AI news text and grounding sources for downstream persistence."""
+
+    text: str
+    related_news: list[dict[str, str]]
 
 
 class AINewsResearcher:
@@ -86,9 +95,18 @@ class AINewsResearcher:
         Raises:
             google.api_core.exceptions.GoogleAPIError: Gemini API 呼び出し失敗時。
         """
+        return self.research_with_sources(recurring_themes, max_items=max_items).text
+
+    def research_with_sources(
+        self,
+        recurring_themes: list[TopicMatch],
+        *,
+        max_items: int = _DEFAULT_MAX_ITEMS,
+    ) -> AINewsResearchResult:
+        """Research news and return Discord text with grounding sources."""
         if not recurring_themes:
             logger.info("news_researcher: no themes, skipping research")
-            return ""
+            return AINewsResearchResult(text="", related_news=[])
 
         prompt = _build_research_prompt(recurring_themes, max_items)
         logger.info(
@@ -107,6 +125,7 @@ class AINewsResearcher:
         )
 
         result_text: str = response.text or ""
+        related_news: list[dict[str, str]] = []
 
         # grounding sources をデバッグログに出す (observability)
         if response.candidates and response.candidates[0].grounding_metadata:
@@ -117,13 +136,28 @@ class AINewsResearcher:
                 len(result_text),
                 len(chunks),
             )
-            for chunk in chunks[:5]:
+            seen_urls: set[str] = set()
+            for chunk in chunks:
                 if chunk.web:
                     logger.debug("  grounding: %s", chunk.web.title or chunk.web.uri)
+                    url = str(chunk.web.uri or "")
+                    if not url or url in seen_urls:
+                        continue
+                    seen_urls.add(url)
+                    related_news.append(
+                        {
+                            "title": str(chunk.web.title or url),
+                            "url": url,
+                            "summary": "",
+                            "source_reason": "Gemini Google Search grounding",
+                        }
+                    )
+                    if len(related_news) >= max_items:
+                        break
         else:
             logger.info("news_researcher: generated %d chars (no grounding metadata)", len(result_text))
 
-        return result_text
+        return AINewsResearchResult(text=result_text, related_news=related_news)
 
 
 # ── Prompt builder ─────────────────────────────────────────────────────────────
