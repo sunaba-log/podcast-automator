@@ -103,8 +103,19 @@ Cloud SQL Unix socketを`/cloudsql`へマウントし、GCSオブジェクトパ
 podcasts/{podcast_id}/episodes/{episode_id}/source/{filename}.{mp3|m4a|wav|flac}
 ```
 
-- `{podcast_id}` および `{episode_id}` には、1以上の整数値（数字）を指定してください。
-- 拡張子は、`.mp3`, `.m4a`, `.wav`, `.flac`（大文字小文字不問）のいずれかである必要があります。
+#### ID（`podcast_id`, `episode_id`）の制約と前提条件
+
+1. **形式の制約 (正規表現によるパース制限)**:
+   - `{podcast_id}` および `{episode_id}` は、**半角英数字、ハイフン、アンダースコア（`[a-zA-Z0-9_-]+`）**が使用可能です（例: `sunabalog`, `ep-2026-06`, UUIDなど）。
+   - パス区切り文字（`/`）や特殊文字（`@`, `#`, `?` など）は使用できません。満たさない場合はパースエラー (`ValueError`) となります。
+
+2. **データベース（PostgreSQL）上の前提条件**:
+   - 音声ファイルをGCSへアップロードする前に、**該当する `podcast_id` と `episode_id` のレコード（行）が PostgreSQL の `episodes` テーブルに事前に登録（INSERT）されている必要があります**。
+   - ジョブ開始時に `UPDATE` クエリを実行して状態を `processing` に更新するため、レコードが存在しない場合は `LookupError` を発生させてジョブ全体が失敗します。
+
+#### その他の要件
+
+- **対応拡張子**: `.mp3`, `.m4a`, `.wav`, `.flac`（大文字小文字不問）のいずれかである必要があります。
 - 音声ファイルがこのパス形式でアップロードされると、システム内部で自動的に `podcast_id` と `episode_id` がパースされ、Cloud SQL（PostgreSQL）やFirestoreの処理状態更新やデータ保存時の共通キーとして使用されます。
 
 ## 実行方法

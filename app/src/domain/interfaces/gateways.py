@@ -80,14 +80,14 @@ class NotificationGateway(Protocol):
 class EpisodeRepository(Protocol):
     """Persist processing state for a Cloud SQL episode."""
 
-    def mark_processing(self, *, podcast_id: int, episode_id: int, source_audio_path: str) -> None:
+    def mark_processing(self, *, podcast_id: str, episode_id: str, source_audio_path: str) -> None:
         """Mark an uploaded episode as processing."""
 
     def mark_completed(
         self,
         *,
-        podcast_id: int,
-        episode_id: int,
+        podcast_id: str,
+        episode_id: str,
         title: str,
         description: str,
         audio_url: str,
@@ -95,7 +95,7 @@ class EpisodeRepository(Protocol):
     ) -> None:
         """Store published episode metadata and mark processing complete."""
 
-    def mark_failed(self, *, podcast_id: int, episode_id: int, error_message: str) -> None:
+    def mark_failed(self, *, podcast_id: str, episode_id: str, error_message: str) -> None:
         """Record a processing failure."""
 
 
