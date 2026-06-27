@@ -14,7 +14,7 @@ class PostgresEpisodeRepository:
         """Initialize the repository."""
         self._database_url = database_url
 
-    def mark_processing(self, *, podcast_id: int, episode_id: int, source_audio_path: str) -> None:
+    def mark_processing(self, *, podcast_id: str, episode_id: str, source_audio_path: str) -> None:
         """Mark an uploaded episode as processing."""
         self._execute_update(
             """
@@ -34,8 +34,8 @@ class PostgresEpisodeRepository:
     def mark_completed(
         self,
         *,
-        podcast_id: int,
-        episode_id: int,
+        podcast_id: str,
+        episode_id: str,
         title: str,
         description: str,
         audio_url: str,
@@ -61,7 +61,7 @@ class PostgresEpisodeRepository:
             episode_id=episode_id,
         )
 
-    def mark_failed(self, *, podcast_id: int, episode_id: int, error_message: str) -> None:
+    def mark_failed(self, *, podcast_id: str, episode_id: str, error_message: str) -> None:
         """Record a processing failure."""
         self._execute_update(
             """
@@ -82,8 +82,8 @@ class PostgresEpisodeRepository:
         statement: str,
         parameters: tuple[Any, ...],
         *,
-        podcast_id: int,
-        episode_id: int,
+        podcast_id: str,
+        episode_id: str,
     ) -> None:
         with psycopg.connect(self._database_url) as connection, connection.cursor() as cursor:
             cursor.execute(statement, parameters)
