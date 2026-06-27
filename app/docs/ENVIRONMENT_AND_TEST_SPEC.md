@@ -22,7 +22,7 @@
 | PROJECT_ID | Yes | - | GCP project ID |
 | DATABASE_URL | Yes | - | Cloud SQL PostgreSQL connection URL |
 | GCS_BUCKET | Yes | - | Input audio bucket |
-| GCS_TRIGGER_OBJECT_NAME | Yes | - | `podcasts/{podcast_id}/episodes/{episode_id}/source/{filename}.mp3` |
+| GCS_TRIGGER_OBJECT_NAME | Yes | - | `podcasts/{podcast_id}/episodes/{episode_id}/source/{filename}.{mp3\|m4a\|wav\|flac}` |
 | R2_BUCKET | Yes | - | Cloudflare R2 bucket |
 | SECRET_NAME | Conditional | - | Secret Manager secret name |
 | CLOUDFLARE_ACCESS_KEY_ID | Conditional | - | R2 access key (when SECRET_NAME is not used) |
