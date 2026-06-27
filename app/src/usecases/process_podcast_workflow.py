@@ -99,6 +99,7 @@ class ProcessPodcastWorkflow:
     def run(self, request: ProcessPodcastWorkflowInput) -> None:
         """Execute podcast workflow and emit notifications for success/failure."""
         self._logger.info("GCS Bucket: %s, File: %s", request.gcs_bucket, request.gcs_trigger_object_name)
+        self._logger.info("DEBUG: Processing GCS Object Path: %s", request.gcs_trigger_object_name)
         episode_ref = EpisodeObjectReference.parse(request.gcs_trigger_object_name)
         gcs_path = Path(request.gcs_trigger_object_name)
         audio_source_mime_type = mimetypes.guess_type(request.gcs_trigger_object_name)[0] or "audio/x-m4a"
@@ -213,8 +214,8 @@ class ProcessPodcastWorkflow:
                     "mime_type": audio_upload_mime_type,
                 }
                 self._firestore_manager.save_episode_content(
-                    podcast_id=str(episode_ref.podcast_id),
-                    episode_id=str(episode_ref.episode_id),
+                    podcast_id=episode_ref.podcast_id,
+                    episode_id=episode_ref.episode_id,
                     episode_number=latest_episode_number,
                     updated_at=generated_at,
                     transcript_summary=transcript_summary,
@@ -223,8 +224,8 @@ class ProcessPodcastWorkflow:
                     audio_metadata=audio_metadata,
                 )
                 self._firestore_manager.save_transcript_chunks(
-                    podcast_id=str(episode_ref.podcast_id),
-                    episode_id=str(episode_ref.episode_id),
+                    podcast_id=episode_ref.podcast_id,
+                    episode_id=episode_ref.episode_id,
                     transcript=transcript,
                 )
                 sns_promotions = self._transcript_provider.generate_sns_promotions(
@@ -237,8 +238,8 @@ class ProcessPodcastWorkflow:
                         datetime.now(UTC) + timedelta(hours=request.sns_schedule_offset_hours) + timedelta(days=i)
                     ).isoformat()
                     self._firestore_manager.create_sns_promotion(
-                        podcast_id=str(episode_ref.podcast_id),
-                        episode_id=str(episode_ref.episode_id),
+                        podcast_id=episode_ref.podcast_id,
+                        episode_id=episode_ref.episode_id,
                         promotion_id=None,
                         generated_at=generated_at,
                         scheduled_time=promo_scheduled_time,

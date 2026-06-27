@@ -87,17 +87,17 @@ class _RssManager:
 
 @dataclass
 class _EpisodeRepository:
-    processing: tuple[int, int, str] | None = None
+    processing: tuple[str, str, str] | None = None
     completed: dict[str, object] | None = None
-    failed: tuple[int, int, str] | None = None
+    failed: tuple[str, str, str] | None = None
 
-    def mark_processing(self, *, podcast_id: int, episode_id: int, source_audio_path: str) -> None:
+    def mark_processing(self, *, podcast_id: str, episode_id: str, source_audio_path: str) -> None:
         self.processing = (podcast_id, episode_id, source_audio_path)
 
     def mark_completed(self, **values: object) -> None:
         self.completed = values
 
-    def mark_failed(self, *, podcast_id: int, episode_id: int, error_message: str) -> None:
+    def mark_failed(self, *, podcast_id: str, episode_id: str, error_message: str) -> None:
         self.failed = (podcast_id, episode_id, error_message)
 
 
@@ -160,10 +160,10 @@ def test_workflow_uses_object_path_ids_for_cloud_sql_and_firestore() -> None:
 
     _workflow(repository=repository, firestore=firestore).run(_request())
 
-    assert repository.processing == (1, 42, "podcasts/1/episodes/42/source/recording.mp3")
+    assert repository.processing == ("1", "42", "podcasts/1/episodes/42/source/recording.mp3")
     assert repository.completed == {
-        "podcast_id": 1,
-        "episode_id": 42,
+        "podcast_id": "1",
+        "episode_id": "42",
         "title": "#4 Generated title",
         "description": "Generated description",
         "audio_url": "https://podcast.example.com/dev/ep/4/audio.mp3",
@@ -195,7 +195,7 @@ def test_workflow_marks_episode_failed_and_reraises() -> None:
     with pytest.raises(ValueError, match="Failed to make transcript"):
         workflow.run(_request())
 
-    assert repository.failed == (1, 42, "Failed to make transcript.")
+    assert repository.failed == ("1", "42", "Failed to make transcript.")
     assert repository.completed is None
 
 
