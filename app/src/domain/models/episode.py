@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 
 _EPISODE_OBJECT_PATH = re.compile(
-    r"^podcasts/(?P<podcast_id>[1-9]\d*)/episodes/(?P<episode_id>[1-9]\d*)/source/(?P<filename>[^/]+\.mp3)$",
+    r"^podcasts/(?P<podcast_id>[1-9]\d*)/episodes/(?P<episode_id>[1-9]\d*)/source/(?P<filename>[^/]+\.(?:mp3|m4a|wav|flac))$",
     re.IGNORECASE,
 )
 
@@ -25,7 +25,10 @@ class EpisodeObjectReference:
         """Parse the cross-repository GCS object path contract."""
         match = _EPISODE_OBJECT_PATH.fullmatch(object_path)
         if match is None:
-            msg = "GCS object path must match podcasts/{podcast_id}/episodes/{episode_id}/source/{filename}.mp3"
+            msg = (
+                "GCS object path must match podcasts/{podcast_id}/episodes/{episode_id}/source/"
+                "{filename}.{mp3|m4a|wav|flac}"
+            )
             raise ValueError(msg)
 
         return cls(

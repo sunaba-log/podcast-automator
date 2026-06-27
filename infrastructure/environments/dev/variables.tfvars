@@ -22,5 +22,5 @@ cloudflare_account_id              = "8ed20f6872cea7c9219d68bfcf5f98ae"
 cloudflare_zone_name               = "sunabalog.com"
 r2_bucket_name                     = "podcast-dev"
 r2_subdomain                       = "dev.podcast"
-enable_promoter                    = true
+enable_promoter                    = false
 manage_firestore_database          = false
