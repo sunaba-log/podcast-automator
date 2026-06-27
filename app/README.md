@@ -95,6 +95,18 @@ Podcast Processing Jobでは、`DATABASE_URL`でCloud SQLへ接続します。Cl
 Cloud SQL Unix socketを`/cloudsql`へマウントし、GCSオブジェクトパスから取得した
 `podcast_id` / `episode_id`で処理状態を更新します。
 
+### GCS アップロードパスの規約
+
+音声ファイルを処理対象のGCSバケットにアップロードする際は、以下のパス規則に従う必要があります。
+
+```text
+podcasts/{podcast_id}/episodes/{episode_id}/source/{filename}.{mp3|m4a|wav|flac}
+```
+
+- `{podcast_id}` および `{episode_id}` には、1以上の整数値（数字）を指定してください。
+- 拡張子は、`.mp3`, `.m4a`, `.wav`, `.flac`（大文字小文字不問）のいずれかである必要があります。
+- 音声ファイルがこのパス形式でアップロードされると、システム内部で自動的に `podcast_id` と `episode_id` がパースされ、Cloud SQL（PostgreSQL）やFirestoreの処理状態更新やデータ保存時の共通キーとして使用されます。
+
 ## 実行方法
 
 ### Podcast Processing Job
