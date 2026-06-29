@@ -8,7 +8,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from google.auth.exceptions import DefaultCredentialsError
 
-from services.news_researcher import AINewsResearcher, _build_research_prompt, _resolve_credentials
+from services.news_researcher import (
+    AINewsResearcher,
+    _build_research_prompt,
+    _parse_conversation_seeds,
+    _resolve_credentials,
+)
 from services.transcript_analyzer import MentionEvidence, TopicMatch
 
 # ── Fixtures / Helpers ─────────────────────────────────────────────────────────
@@ -52,6 +57,16 @@ def _make_mock_response_with_grounding(text: str = "Generated news content") -> 
     candidate.grounding_metadata = meta
     response.candidates = [candidate]
     return response
+
+
+def _make_ai_news_text() -> str:
+    return """1. **AIモデルの運用停止リスク** (出典: Example News)
+・最近の論点との接続: LLMへの依存を話していたが、外部要因で突然止まる観点が加わる。
+・何が面白いか: 技術選定だけではなく、供給リスクがプロダクト設計に直結する点。
+・次に話せそうな問い: AI基盤を複数持つ設計はどこまで現実的か?
+
+💬 今週の切り口: AIを前提にした開発体制の脆さから話す。
+"""
 
 
 # ── TestBuildResearchPrompt ────────────────────────────────────────────────────
@@ -218,6 +233,40 @@ class TestAINewsResearcher:
                 "url": "https://example.com/article",
                 "summary": "",
                 "source_reason": "Gemini Google Search grounding",
+            }
+        ]
+
+    def test_parse_conversation_seeds_from_ai_news_text(self):
+        """AI本文から会話の種の3項目を構造化できること."""
+        result = _parse_conversation_seeds(_make_ai_news_text())
+
+        assert len(result) == 1
+        assert result[0].title == "AIモデルの運用停止リスク"
+        assert result[0].source == "Example News"
+        assert result[0].connection == "LLMへの依存を話していたが、外部要因で突然止まる観点が加わる。"
+        assert result[0].interesting == "技術選定だけではなく、供給リスクがプロダクト設計に直結する点。"
+        assert result[0].question == "AI基盤を複数持つ設計はどこまで現実的か?"
+
+    @patch("services.news_researcher._resolve_credentials", return_value=None)
+    @patch("services.news_researcher.genai.Client")
+    def test_research_with_sources_merges_ai_angles_into_related_news(self, mock_client_cls, mock_creds):
+        """AI本文の3項目をFirestore保存用related_newsへ反映すること."""
+        _ = mock_creds
+        mock_client_cls.return_value.models.generate_content.return_value = _make_mock_response_with_grounding(
+            _make_ai_news_text()
+        )
+        researcher = AINewsResearcher(project_id="test-project")
+
+        result = researcher.research_with_sources([_make_topic()])
+
+        assert result.related_news == [
+            {
+                "title": "AIモデルの運用停止リスク",
+                "url": "https://example.com/article",
+                "summary": "技術選定だけではなく、供給リスクがプロダクト設計に直結する点。",
+                "source": "Example News",
+                "source_reason": "LLMへの依存を話していたが、外部要因で突然止まる観点が加わる。",
+                "question": "AI基盤を複数持つ設計はどこまで現実的か?",
             }
         ]
 
