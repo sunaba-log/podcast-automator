@@ -44,15 +44,22 @@ Conditional rule:
 | Name | Required | Default | Description |
 | --- | --- | --- | --- |
 | DISCORD_WEBHOOK_AGENDA_URL | Yes | - | Weekly agenda post destination |
-| DISCORD_BOT_TOKEN | No | - | Discord API token for transcript fetching |
-| DISCORD_TRANSCRIPT_CHANNEL_ID | No | - | Source channel ID for transcript messages |
-| TRANSCRIPT_FETCH_LIMIT | No | 50 | Number of messages to fetch |
+| PROJECT_ID | Yes when Firestore persistence/source is enabled | - | GCP project ID for Firestore |
+| PODCAST_ID | Yes when Firestore persistence/source is enabled | - | Firestore podcast document ID |
+| DISCORD_BOT_TOKEN | No | - | Discord API token for fallback transcript fetching |
+| DISCORD_TRANSCRIPT_CHANNEL_ID | No | - | Fallback source channel ID for transcript messages |
+| TRANSCRIPT_FETCH_LIMIT | No | 50 | Number of Firestore episodes or Discord messages to fetch |
 | DEBUG_JSON_PATH | No | - | Optional path to dump AgendaResult JSON |
 | GOOGLE_CLOUD_PROJECT | No | - | Required only when AI news research is enabled |
 
 Behavior rule:
 
-- DISCORD_BOT_TOKEN または DISCORD_TRANSCRIPT_CHANNEL_ID が未設定の場合、transcript 解析をスキップして固定メッセージで通知します。
+- Agenda job first reads stored transcripts from Firestore:
+  `podcasts/{podcast_id}/episodes_contents/{episode_id}/transcripts/{chunk_id}`.
+- If Firestore has no transcript episodes, it falls back to Discord transcript
+  fetching.
+- If neither Firestore transcripts nor Discord credentials are available, it
+  sends the fixed reminder message.
 
 ## 3. Secret Manager Contract
 

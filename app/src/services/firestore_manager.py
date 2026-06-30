@@ -148,6 +148,52 @@ class FirestoreManager:
         )
         return doc_ref.id
 
+    def list_recent_transcript_episodes(
+        self,
+        *,
+        podcast_id: str,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Read recent episode transcripts from Firestore for agenda generation."""
+        query = (
+            self._episode_contents_collection(podcast_id)
+            .order_by("updated_at", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+        )
+        episodes: list[dict[str, Any]] = []
+
+        for doc in query.stream():
+            data = doc.to_dict() or {}
+            episode_number = data.get("episode_number")
+            if not isinstance(episode_number, int):
+                continue
+
+            transcript_parts: list[str] = []
+            transcript_docs = doc.reference.collection("transcripts").order_by("chunk_id").stream()
+            for transcript_doc in transcript_docs:
+                transcript_data = transcript_doc.to_dict() or {}
+                text = transcript_data.get("text")
+                if isinstance(text, str) and text.strip():
+                    transcript_parts.append(text.strip())
+
+            content = "\n\n".join(transcript_parts).strip()
+            if not content:
+                summary = data.get("transcript_summary")
+                content = summary.strip() if isinstance(summary, str) else ""
+            if not content:
+                continue
+
+            episodes.append(
+                {
+                    "episode_id": doc.id,
+                    "episode_number": episode_number,
+                    "content": content,
+                    "updated_at": str(data.get("updated_at") or ""),
+                },
+            )
+
+        return sorted(episodes, key=lambda item: int(item["episode_number"]))
+
     def get_pending_sns_promotions(self) -> list[dict[str, Any]]:
         """Retrieve all pending SNS promotions across all episodes using a collection group query."""
         query = self._client.collection_group("sns_promotions").where("status", "==", "pending")
