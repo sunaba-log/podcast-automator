@@ -120,6 +120,43 @@ class GenerateWeeklyAgendaUsecase:
             )
         return suggested_topics
 
+    def _build_ai_suggested_topics_payload(
+        self,
+        related_news: list[dict[str, object]] | None,
+    ) -> list[dict[str, object]]:
+        """Convert AI news research angles into editable conversation seeds."""
+        if not related_news:
+            return []
+
+        suggested_topics: list[dict[str, object]] = []
+        for item in related_news[:3]:
+            title = str(item.get("title") or "").strip()
+            connection = str(item.get("source_reason") or "").strip()
+            interesting = str(item.get("summary") or "").strip()
+            question = str(item.get("question") or "").strip()
+
+            if not title or not question:
+                continue
+
+            suggested_points: list[str] = []
+            if connection:
+                suggested_points.append(f"最近の論点との接続: {connection}")
+            if interesting:
+                suggested_points.append(f"何が面白いか: {interesting}")
+            if question:
+                suggested_points.append(f"次に話せそうな問い: {question}")
+
+            suggested_topics.append(
+                {
+                    "title": title,
+                    "description": question or interesting or connection,
+                    "suggested_points": suggested_points,
+                    "related_past_episodes": [],
+                },
+            )
+
+        return suggested_topics
+
     def _save_topic_proposal(
         self,
         *,
@@ -135,6 +172,9 @@ class GenerateWeeklyAgendaUsecase:
         news_payload = related_news
         if news_payload is None:
             news_payload = self._build_related_news_payload(news_candidates)  # type: ignore[assignment]
+        suggested_topics = self._build_ai_suggested_topics_payload(news_payload)
+        if not suggested_topics:
+            suggested_topics = self._build_suggested_topics_payload(result)
 
         return self._firestore_manager.create_topic_proposal(
             podcast_id=podcast_id,
@@ -142,5 +182,5 @@ class GenerateWeeklyAgendaUsecase:
             target_period_string=self._build_target_period_string(result.metadata.generated_at),
             generated_at=result.metadata.generated_at,
             related_news=news_payload[:3],
-            suggested_topics=self._build_suggested_topics_payload(result),
+            suggested_topics=suggested_topics,
         )

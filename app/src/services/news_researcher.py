@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -30,6 +31,23 @@ logger = logging.getLogger(__name__)
 _DEFAULT_MODEL: str = "gemini-2.5-flash"
 _DEFAULT_LOCATION: str = "us-central1"
 _DEFAULT_MAX_ITEMS: int = 3
+_NEWS_ITEM_RE = re.compile(
+    r"^\s*\d+\.\s+\*\*(?P<title>.+?)\*\*\s+\(出典:\s*(?P<source>.+?)\)\s*$",
+)
+_CONNECTION_PREFIX = "・最近の論点との接続:"
+_INTERESTING_PREFIX = "・何が面白いか:"
+_QUESTION_PREFIX = "・次に話せそうな問い:"
+
+
+@dataclass(frozen=True)
+class AIConversationSeed:
+    """Structured conversation seed parsed from the AI news markdown."""
+
+    title: str
+    source: str
+    connection: str
+    interesting: str
+    question: str
 
 
 @dataclass(frozen=True)
@@ -157,6 +175,14 @@ class AINewsResearcher:
         else:
             logger.info("news_researcher: generated %d chars (no grounding metadata)", len(result_text))
 
+        conversation_seeds = _parse_conversation_seeds(result_text)
+        if conversation_seeds:
+            related_news = _merge_conversation_seeds_into_related_news(
+                conversation_seeds=conversation_seeds,
+                related_news=related_news,
+                max_items=max_items,
+            )
+
         return AINewsResearchResult(text=result_text, related_news=related_news)
 
 
@@ -210,6 +236,88 @@ def _build_research_prompt(
 - 1件あたり4行以内
 - 不確かな情報は「〜とのこと」等で断定を避ける
 """
+
+
+# ── Response parsing ───────────────────────────────────────────────────────────
+
+
+def _parse_conversation_seeds(text: str) -> list[AIConversationSeed]:
+    """Parse the fixed AI news markdown format into structured conversation seeds."""
+    seeds: list[AIConversationSeed] = []
+    current: dict[str, str] | None = None
+
+    def flush() -> None:
+        nonlocal current
+        if current is None:
+            return
+        required = ("title", "source", "connection", "interesting", "question")
+        if all(current.get(key) for key in required):
+            seeds.append(
+                AIConversationSeed(
+                    title=current["title"],
+                    source=current["source"],
+                    connection=current["connection"],
+                    interesting=current["interesting"],
+                    question=current["question"],
+                )
+            )
+        current = None
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        match = _NEWS_ITEM_RE.match(line)
+        if match:
+            flush()
+            current = {
+                "title": match.group("title").strip(),
+                "source": match.group("source").strip(),
+            }
+            continue
+
+        if current is None:
+            continue
+
+        if line.startswith(_CONNECTION_PREFIX):
+            current["connection"] = line.removeprefix(_CONNECTION_PREFIX).strip()
+        elif line.startswith(_INTERESTING_PREFIX):
+            current["interesting"] = line.removeprefix(_INTERESTING_PREFIX).strip()
+        elif line.startswith(_QUESTION_PREFIX):
+            current["question"] = line.removeprefix(_QUESTION_PREFIX).strip()
+
+    flush()
+    return seeds
+
+
+def _merge_conversation_seeds_into_related_news(
+    *,
+    conversation_seeds: list[AIConversationSeed],
+    related_news: list[dict[str, str]],
+    max_items: int,
+) -> list[dict[str, str]]:
+    """Attach AI-generated discussion angles to Firestore related_news payloads."""
+    merged = [dict(item) for item in related_news[:max_items]]
+
+    for index, seed in enumerate(conversation_seeds[:max_items]):
+        if index < len(merged):
+            item = merged[index]
+        else:
+            item = {"url": ""}
+            merged.append(item)
+
+        item.update(
+            {
+                "title": seed.title,
+                "summary": seed.interesting,
+                "source": seed.source,
+                "source_reason": seed.connection,
+                "question": seed.question,
+            }
+        )
+
+    return merged[:max_items]
 
 
 # ── Auth helpers ───────────────────────────────────────────────────────────────
