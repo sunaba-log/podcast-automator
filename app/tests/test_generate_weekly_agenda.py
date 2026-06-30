@@ -122,6 +122,65 @@ def test_generate_weekly_agenda_saves_to_firestore() -> None:
     assert kwargs["suggested_topics"][0]["related_past_episodes"] == [1]
 
 
+def test_generate_weekly_agenda_saves_ai_news_angles_as_suggested_topics() -> None:
+    # Arrange
+    notifier = mock.Mock(spec=NotificationGateway)
+    notifier.send_discord_message.return_value = True
+    firestore_manager = mock.Mock(spec=FirestoreManager)
+    firestore_manager.create_topic_proposal.return_value = "proposal-123"
+    logger = logging.getLogger("test_agenda")
+
+    usecase = GenerateWeeklyAgendaUsecase(
+        notifier=notifier,
+        firestore_manager=firestore_manager,
+        logger=logger,
+    )
+
+    theme1 = FakeTopicMatch(
+        topic_id="tech-ai",
+        display_name="AI Theme",
+        mention_count=2,
+        evidence=[FakeEvidence(source_episode=1, text="Raw transcript fragment")],
+    )
+    result = FakeAgendaResult(
+        generated_at="2026-06-25T00:00:00Z",
+        recurring_themes=[theme1],
+    )
+    related_news = [
+        {
+            "title": "AIモデルの運用停止リスク",
+            "url": "https://example.com/news",
+            "summary": "技術選定だけではなく、供給リスクがプロダクト設計に直結する点。",
+            "source_reason": "LLMへの依存を話していたが、外部要因で突然止まる観点が加わる。",
+            "question": "AI基盤を複数持つ設計はどこまで現実的か?",
+        }
+    ]
+
+    # Act
+    success = usecase.run(
+        message_builder=lambda: ("Agenda Message", result, [], related_news),
+        fallback_message="Fallback",
+        podcast_id="podcast-456",
+    )
+
+    # Assert
+    assert success is True
+    _, kwargs = firestore_manager.create_topic_proposal.call_args
+    assert kwargs["related_news"] == related_news
+    assert kwargs["suggested_topics"] == [
+        {
+            "title": "AIモデルの運用停止リスク",
+            "description": "AI基盤を複数持つ設計はどこまで現実的か?",
+            "suggested_points": [
+                "最近の論点との接続: LLMへの依存を話していたが、外部要因で突然止まる観点が加わる。",
+                "何が面白いか: 技術選定だけではなく、供給リスクがプロダクト設計に直結する点。",
+                "次に話せそうな問い: AI基盤を複数持つ設計はどこまで現実的か?",
+            ],
+            "related_past_episodes": [],
+        }
+    ]
+
+
 def test_generate_weekly_agenda_builder_failure_falls_back() -> None:
     # Arrange
     notifier = mock.Mock(spec=NotificationGateway)

@@ -19,9 +19,17 @@ class _FakeDocRef:
 
     def set(self, data: dict[str, object], merge: bool = False) -> None:  # noqa: FBT001, FBT002
         self.set_calls.append((data, merge))
+        self.data = data
 
     def collection(self, name: str) -> _FakeCollectionRef:
         return self._collections.setdefault(name, _FakeCollectionRef(f"{self.path}/{name}"))
+
+    def to_dict(self) -> dict[str, object]:
+        return getattr(self, "data", {})
+
+    @property
+    def reference(self) -> _FakeDocRef:
+        return self
 
 
 @dataclass
@@ -33,6 +41,17 @@ class _FakeCollectionRef:
 
     def document(self, doc_id: str) -> _FakeDocRef:
         return self.documents.setdefault(doc_id, _FakeDocRef(f"{self.path}/{doc_id}"))
+
+    def order_by(self, *_args: object, **_kwargs: object) -> _FakeCollectionRef:
+        return self
+
+    def limit(self, count: int) -> _FakeCollectionRef:
+        self._limit = count
+        return self
+
+    def stream(self) -> list[_FakeDocRef]:
+        docs = list(self.documents.values())
+        return docs[: getattr(self, "_limit", len(docs))]
 
 
 class _FakeBatch:
@@ -158,3 +177,30 @@ def test_create_topic_proposal_writes_top_level_document() -> None:
     assert proposal_id == "proposal-1"
     doc_ref = client.collection("podcasts").document("podcast-1").collection("topic_proposals").document("proposal-1")
     assert doc_ref.set_calls[0][0]["target_period_string"] == "2026年 第23週 (06/01 - 06/07)"
+
+
+def test_list_recent_transcript_episodes_reads_transcript_chunks() -> None:
+    client = _FakeClient()
+    manager = FirestoreManager(project_id="demo", client=client)
+    episode_doc = client.collection("podcasts").document("podcast-1").collection("episodes_contents").document("ep-1")
+    episode_doc.set(
+        {
+            "episode_number": 42,
+            "updated_at": "2026-06-30T00:00:00Z",
+            "transcript_summary": "summary",
+        },
+        merge=True,
+    )
+    episode_doc.collection("transcripts").document("chunk_0001").set({"text": "part 1"}, merge=False)
+    episode_doc.collection("transcripts").document("chunk_0002").set({"text": "part 2"}, merge=False)
+
+    result = manager.list_recent_transcript_episodes(podcast_id="podcast-1", limit=10)
+
+    assert result == [
+        {
+            "episode_id": "ep-1",
+            "episode_number": 42,
+            "content": "part 1\n\npart 2",
+            "updated_at": "2026-06-30T00:00:00Z",
+        }
+    ]

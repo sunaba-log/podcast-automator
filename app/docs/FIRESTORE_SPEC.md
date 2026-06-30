@@ -20,7 +20,8 @@ flowchart TD
 
     subgraph "2. アジェンダ生成ジョブ (agenda)"
         Schedule["Cloud Scheduler<br>(毎週水曜 07:00 JST)"] -->|起動| AgendaJob["Cloud Run Job: agenda<br>(entrypoints/agenda_main.py)"]
-        Discord["Discord Transcript Channel"] -->|過去の会話取得| AgendaJob
+        DocTrans -->|過去議事録取得| AgendaJob
+        Discord["Discord Transcript Channel"] -.->|Firestoreに議事録が無い場合のみfallback| AgendaJob
         RSS["RSS ニュースフィード"] -->|ニュース取得| AgendaJob
         AgendaJob -->|関連度マッチング & AI検索| AgendaJob
         AgendaJob -->|書き込み| DocProposal["topic_proposals<br>(議題提案)"]
@@ -187,6 +188,7 @@ flowchart TD
 
 - **Firestore パス**: `podcasts/{podcast_id}/topic_proposals/{proposal_id}`
 - **生成ジョブ**: `podcast-automator-agenda-{environment}` (`app/src/entrypoints/agenda_main.py`)
+- **入力元**: 原則として Firestore の `episodes_contents/{episode_id}/transcripts/{chunk_id}` を使用する。Firestoreに議事録が存在しない場合のみ、後方互換のfallbackとしてDiscord Transcript Channelを参照する。
 - **ドキュメントID (`{proposal_id}`)**: 新規生成された UUID (32文字の hex 文字列)
 
 #### スキーマ定義
